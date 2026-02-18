@@ -53,34 +53,37 @@ class histmaker {
         hisobdt[i] = new TH2D(Form("hisobdt%i",i),";cluster iso;bdt score",100,-1,20,100,0,1);
       }
       for (int i = 0; i < ana::nJetR; i++) {
-        hjetpt[i] =                new TH1D(Form("hjetpt%i",i),";jet p_{T,max};counts",100,0,100);
-        htruthjetpt[i] =           new TH1D(Form("htruthjetpt%i",i),";jet p_{T,max};counts",100,0,100);
-        htruthjetptspec[i] =       new TH1D(Form("htruthjetptspec%i",i),";jet p_{T,max};counts",100,0,100);
-        htruthjetptanti[i] =       new TH1D(Form("htruthjetptanti%i",i),";jet p_{T,max};counts",100,0,100);
-        hjetptprecut[i] =          new TH1D(Form("hjetptprecut%i",i),";jet p_{T,max};counts",100,0,100);
-        htruthjetptprecut[i] =     new TH1D(Form("htruthjetptprecut%i",i),";jet p_{T,max};counts",100,0,100);
-        hmtminusjt[i] =            new TH1D(Form("hmtminusjt%i",i),";t_{mbd}-t_{jet} [ns]",100,-10,10);
-        hctminusjt[i] =            new TH1D(Form("hctminusjt%i",i),";t_{cluster}-t_{jet} [ns]",100,-10,10);
-        hiso[i] =                  new TH1D(Form("hiso%i",i),";iso E R02;counts",100,-1,50);
-        hjeteta[i] =               new TH1D(Form("hjeteta%i",i),";#eta_jet;counts",100,-1.1,1.1);
-        hjetetahighem[i] =         new TH1D(Form("hjetetahighem%i",i),";#eta_jet (emfrac > 0.8);counts",100,-1.1,1.1);
-        hjetetalowem[i] =          new TH1D(Form("hjetetalowem%i",i),";#eta_jet (emfrac < 0.5);counts",100,-1.1,1.1);
-        hdeltar[i] =               new TH1D(Form("hdeltar%i",i),";dr [eta,phi];counts",100,0,4);
+        hjetpt[i] =            new TH1D(Form("hjetpt%i",i),";jet p_{T,max};counts",100,0,100);
+        htruthjetpt[i] =       new TH1D(Form("htruthjetpt%i",i),";jet p_{T,max};counts",100,0,100);
+        htruthjetptspec[i] =   new TH1D(Form("htruthjetptspec%i",i),";jet p_{T,max};counts",100,0,100);
+        htruthjetptanti[i] =   new TH1D(Form("htruthjetptanti%i",i),";jet p_{T,max};counts",100,0,100);
+        hjetptprecut[i] =      new TH1D(Form("hjetptprecut%i",i),";jet p_{T,max};counts",100,0,100);
+        htruthjetptprecut[i] = new TH1D(Form("htruthjetptprecut%i",i),";jet p_{T,max};counts",100,0,100);
+        hmtminusjt[i] =        new TH1D(Form("hmtminusjt%i",i),";t_{mbd}-t_{jet} [ns]",100,-10,10);
+        hctminusjt[i] =        new TH1D(Form("hctminusjt%i",i),";t_{cluster}-t_{jet} [ns]",100,-10,10);
+        hiso[i] =              new TH1D(Form("hiso%i",i),";iso E R02;counts",100,-1,50);
+        hjeteta[i] =           new TH1D(Form("hjeteta%i",i),";#eta_jet;counts",100,-1.1,1.1);
+        hjetetahighem[i] =     new TH1D(Form("hjetetahighem%i",i),";#eta_jet (emfrac > 0.8);counts",100,-1.1,1.1);
+        hjetetalowem[i] =      new TH1D(Form("hjetetalowem%i",i),";#eta_jet (emfrac < 0.5);counts",100,-1.1,1.1);
+        hdeltar[i] =           new TH1D(Form("hdeltar%i",i),";dr [eta,phi];counts",100,0,4);
 
-        hjetetaphi[i] =            new TH2D(Form("hjetetaphi%i",i),";#eta_{jet};#phi_{jet}",100,-1.1,1.1,100,-M_PI,M_PI);
-        hiso2d[i] =                new TH2D(Form("hiso2d%i",i),";cluster E;iso E R02",100,0,50,100,0,50);
-        hJES[i] =                  new TH2D(Form("hJES%i",i),";Uncalibrated Jet pT;Calib scale",50,0,50,100,0,3);
-        hjetsmear[i] =             new TH2D(Form("hjetsmear%i",i),";Calibrated jet pT;smeared jet pT",50,0,50,50,0,50);
+        hjetetaphi[i] =        new TH2D(Form("hjetetaphi%i",i),";#eta_{jet};#phi_{jet}",100,-1.1,1.1,100,-M_PI,M_PI);
+        hiso2d[i] =            new TH2D(Form("hiso2d%i",i),";cluster E;iso E R02",100,0,50,100,0,50);
+        hJES[i] =              new TH2D(Form("hJES%i",i),";Uncalibrated Jet pT;Calib scale",50,0,50,100,0,3);
+        hjetsmear[i] =         new TH2D(Form("hjetsmear%i",i),";Calibrated jet pT;smeared jet pT",50,0,50,50,0,50);
+        h3jetpt[i] =           new TH2D(Form("h3jetpt%i",i),";Leading cluster pT; Leading 3rd Jet pT",ana::nPtBins, ana::ptBins, 50,0,50);
         for (int j = 0; j < ana::nPtBins; j++) {
           hemfrac[j][i] = new TH1D(Form("hemfrac%i_%i",j,i),";jet emfrac;counts",100,-0.1,1.1);
           hdeltaphi[j][i] = new TH1D(Form("hdeltaphi%i_%i",j,i),";|#phi_{#gamma} - #phi_{leading jet}|;counts",100,0,M_PI);
           hdeltaphiprecut[j][i] = new TH1D(Form("hdeltaphiprecut%i_%i",j,i),";|#phi_{#gamma} - #phi_{leading jet}|;counts",100,0,M_PI);
-          h3jetpt[j][i] = new TH1D(Form("h3jetpt%i_%i",j,i),";Leading 3rd Jet pT;Counts",50,0,50);
-          h3jetpteta[j][i] = new TH1D(Form("h3jetpteta%i_%i",j,i),";Leading 3rd Jet pT;Counts",50,0,50);
+          h3jetdeltar[j][i] = new TH1D(Form("h3jetdeltar%i_%i",j,i),";#DeltaR_{max jet, 3rd jet};counts",100,0,4);
         }
         for (int j = 0; j < ana::nxjBins; j++) {
           hjetetaxj[j][i] = new TH1D(Form("hjetetaxj%i_%i",j,i),Form(";jet eta %1.1f < xJ < %1.1f;Counts",ana::xjBins[j],ana::xjBins[j+1]),100,-1.1,1.1);
         }
+        for (int j = 0; j < ana::nBdtBins; j++) {
+          hxjbdt[j][i] = new TH1D(Form("hxjbdt%i_%i",j,i), ";x_{J#gamma};counts", 100, 0, 2);
+        } 
       }
       for (int i = 0; i < 11; i++) {
         hbdt[i] = new TH1D(Form("hbdt%i",i),";bdt score;counts",120,-0.1,1.1);
@@ -88,16 +91,18 @@ class histmaker {
       for (int i = 0; i < 4; i++) {
         hclusterptabcd[i] = new TH1D(Form("hclusterptabcd%i",i),";p_{T}^{lead cluster};Counts",100,0,100);
       }
+      
     }
     void treesetup();
     void savehists(TH1D * h[], int n);
     void savehists(TH2D * h[], int n);
     void savehists(TH1D * h[][ana::nJetR], int n, int m);
+    void savehists(TH2D * h[][ana::nJetR], int n, int m);
     void end();
     float getZ(pho_object pho, vector<jet_object> jets, bool isiso);
     pho_object getmaxpho(vector<pho_object> phos);
     jet_object getmaxjet(vector<jet_object> jets, pho_object pho, int ij);
-    bool getthirdjet(pho_object maxpho, jet_object maxjet, vector<jet_object> jets, int ir, int icalib);
+    jet_object getthirdjet(pho_object maxpho, jet_object maxjet, vector<jet_object> jets, int ir, int icalib);
     bool loop(jet_object jet, vector<jet_object> jets, int jindex, pho_object pho, int icalib, bool isthirdjet = 0);
     void make_hists();
     
@@ -163,8 +168,9 @@ class histmaker {
     TH1D * hemfrac        [ana::nPtBins][ana::nJetR];
     TH1D * hdeltaphi      [ana::nPtBins][ana::nJetR];
     TH1D * hdeltaphiprecut[ana::nPtBins][ana::nJetR];
-    TH1D * h3jetpt        [ana::nPtBins][ana::nJetR];
-    TH1D * h3jetpteta     [ana::nPtBins][ana::nJetR];
+    TH1D * h3jetdeltar    [ana::nPtBins][ana::nJetR];
+
+    TH1D * hxjbdt        [ana::nBdtBins][ana::nJetR]; 
 
     TH1D * hmtminusjt           [ana::nJetR];
     TH1D * hctminusjt           [ana::nJetR];
@@ -185,6 +191,8 @@ class histmaker {
     TH2D * hiso2d               [ana::nJetR];
     TH2D * hJES                 [ana::nJetR];
     TH2D * hjetsmear            [ana::nJetR];
+    TH2D * h3jetpt              [ana::nJetR];
+
 
     TH1D * hfrag = new TH1D("hfrag",";cluster Z without iso;counts",100,0,1);
     TH1D * hfragiso = new TH1D("hfragiso",";cluster Z with iso;counts",100,0,1);

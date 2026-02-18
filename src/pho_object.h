@@ -62,7 +62,7 @@ inline std::vector<pho_object> make_clusters(
       int showershape = isloose * 1 + istight * 2; // 0: nothing, 1: loose, 2: tight
 
       v.emplace_back(pt[i], e[i], eta[i], phi[i], iso3, iso4,
-          t[i] * 17.6, bdt.empty() ? 0 : bdt[0][i], showershape);
+          t[i] * 17.6, bdt.empty() ? 0 : bdt[9][i], showershape);
     } else {
       v.emplace_back(pt[i], e[i], eta[i], phi[i], 0, 0, 0, 0, 0);
     }

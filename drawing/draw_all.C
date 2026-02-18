@@ -97,18 +97,20 @@ void draw_wall(TCanvas * c, int iabcd, int k) {
   return;
 }
 
-void draw_many(TCanvas * c) {
+void draw_many(TCanvas * c, const char * cname, const char * info1, const char * info2,
+    vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H1,          
+    vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H2,          
+    TF1 * f1[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], 
+    TF1 * f2[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], 
+    int ir1, int icalib1, int ibdt1, int i3jet1, int iabcd1,
+    int ir2, int icalib2, int ibdt2, int i3jet2, int iabcd2) {
 
   float drawx = 0.80;
   float drawy = 0.92;
   float fontsize = 60;
   int offset = 0;
   int ir = 1;
-  int icalib = 1;
-  int ibdt = 0;
-  int i3jet = 0;
-  int iabcd = 0;
-  string calibstring = (icalib == 1 ? "JES Calibrated" : "Uncalibrated Jets");
+  string calibstring = (icalib1 == 1 ? "JES Calibrated" : "Uncalibrated Jets");
   vector<string> t1 = {"#bf{Analysis region A}","#bf{Analysis region B}","#bf{Analysis region C}","#bf{Analysis region D}", "Combined ABCD"};
 
   TPad * p = new TPad("p","",0,0,1,1);
@@ -117,11 +119,11 @@ void draw_many(TCanvas * c) {
   p->Divide(4,3,0,0);
   p->Draw();
 
-  for (int i = 0; i < ana::nPtBins; i++) {
-      TH1D * h1 = hratiod[i][ir][icalib][ibdt][i3jet][iabcd];
-      TH1D * h2 = hratiop[i][ir][icalib][ibdt][i3jet][iabcd];
+  for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+      TH1D * h1 = H1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1];
+      TH1D * h2 = H2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2];
 
-      int index = i + 1 + offset;
+      int index = ipt + 1 + offset;
       if (index % (3+1) == 0) {index++; offset++;}
       p->cd(index);
       if ((index + 1) % (3+1) == 0) gPad->SetRightMargin(0.01);
@@ -145,20 +147,22 @@ void draw_many(TCanvas * c) {
       h1->Draw("hist same");
       h2->Draw("hist same");
      
-      if (iabcd == 0 || iabcd == 4) {
-        fitd[i][ir][icalib][ibdt][i3jet][iabcd]->Draw("same");
-        fitp[i][ir][icalib][ibdt][i3jet][iabcd]->Draw("same");
+      if (iabcd1 == 0 || iabcd1 == 4) {
+        f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->Draw("same");
+      }
+      if (iabcd2 == 0 || iabcd2 == 4) {
+        f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->Draw("same");
       }
 
-      float lowcluster = ana::ptBins[i];
-      float highcluster = ana::ptBins[i+1];
-      float minjet = (icalib == 1 ? ana::jet_calib_pt_cut[ir] : ana::jet_pt_cut[ir]);
+      float lowcluster = ana::ptBins[ipt];
+      float highcluster = ana::ptBins[ipt+1];
+      float minjet = (icalib1 == 1 ? ana::jet_calib_pt_cut[ir1] : ana::jet_pt_cut[ir1]);
       float drawx = 0.15;
       if ((index - 1) % 4 == 0) drawx = 0.35;
       d.drawMany({
           Form("#bf{%.0f GeV < p_{T}^{cluster} < %.0f GeV}",lowcluster,highcluster),
-          Form("#bf{#mu_{data} = %0.2f #pm %0.2f}",fitd[i][ir][icalib][ibdt][i3jet][iabcd]->GetParameter(1),fitd[i][ir][icalib][ibdt][i3jet][iabcd]->GetParError(1)),
-          Form("#bf{#mu_{MC} = %0.2f #pm %0.2f}"  ,fitp[i][ir][icalib][ibdt][i3jet][iabcd]->GetParameter(1),fitp[i][ir][icalib][ibdt][i3jet][iabcd]->GetParError(1))
+          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParameter(1),f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParError(1)),
+          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParameter(1),f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParError(1))
           },drawx,0.88,42,c->GetWh()/3.0);
       TLine * line = new TLine(minjet/lowcluster,0,minjet/lowcluster,1);
       line->SetLineStyle(8);
@@ -166,37 +170,40 @@ void draw_many(TCanvas * c) {
   }
   p->cd();
   d.drawAll({
-      "run 47289-53864",
-      "MC run28 Photon"},
+      info1, 
+      info2},
       {
       "Analysis cuts",
-      Form("Jet R=%1.1f",ana::JetRs[ir]),
+      Form("Jet R=%1.1f",ana::JetRs[ir1]),
       calibstring,
-      t1[iabcd].c_str()},
+      t1[iabcd1].c_str()},
       drawx,drawy,fontsize,c->GetWh());
   TLegend * l2 = new TLegend(drawx,drawy-.3,0.99,drawy-.2);
   l2->SetLineWidth(0);
-  l2->AddEntry(hratiod[0][0][0][0][0][iabcd],("data"));
-  l2->AddEntry(hratiop[0][0][0][0][0][iabcd],("MC Photon reco"));
+  l2->AddEntry(H1[0][ir1][icalib1][ibdt1][i3jet1][iabcd1],info1);
+  l2->AddEntry(H2[0][ir2][icalib2][ibdt2][i3jet2][iabcd2],info2);
   l2->Draw();
   return;
 }
 
-void draw_one(TCanvas * c, int ipt, int ir, int iabcd, int k) {
+void draw_one(TCanvas * c, const char * cname, const char * info1, const char * info2,
+    vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H1,          
+    vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H2,          
+    TF1 * f1[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], 
+    TF1 * f2[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], 
+    int ipt1, int ir1, int icalib1, int ibdt1, int i3jet1, int iabcd1,
+    int ipt2, int ir2, int icalib2, int ibdt2, int i3jet2, int iabcd2) {
   float drawx = 0.6;
   float drawy = 0.85;
-  int i = ipt;
-  int j = ir;
-  string calibstring = (k == 1 ? "JES Calibrated" : "Uncalibrated Jets");
+  string calibstring = (icalib1 == 1 ? "JES Calibrated" : "Uncalibrated Jets");
   vector<string> t1 = {"#bf{Analysis region A}","#bf{Analysis region B}","#bf{Analysis region C}","#bf{Analysis region D}", "Combined ABCD"};
   int colors[6] = {kSpring + 2, kBlue, kGreen + 3, kMagenta+1, kTeal, kSpring+2};
   gPad->SetTicks(1,1);
   gPad->SetLeftMargin(.2);
   gPad->SetBottomMargin(.15);
   
-  TH1D * h1 = hratiod[ipt][ir][k][0][0][iabcd];
-  TH1D * h2 = hratiop[ipt][ir][k][0][0][iabcd];
-  TH1D * h3 = hratioj[ipt][ir][k][0][0][iabcd];
+  TH1D * h1 = H1[ipt1][ir1][icalib1][ibdt1][i3jet1][iabcd1];
+  TH1D * h2 = H2[ipt2][ir2][icalib2][ibdt2][i3jet2][iabcd2];
   h1->GetXaxis()->SetTitle("p_{T,max}^{Jet}/p_{T,max}^{cluster}");
   h1->GetXaxis()->SetTitleSize(0.04);
   h1->GetXaxis()->SetTitleOffset(1.5);
@@ -209,14 +216,12 @@ void draw_one(TCanvas * c, int ipt, int ir, int iabcd, int k) {
   h1->GetYaxis()->SetMaxDigits(3);
   h1->GetYaxis()->SetDecimals(2);
   h1->Draw("hist e");
-
   h2->Draw("hist e same");
-
   //h3->Draw("hist e same");
 
-  float lowcluster = ana::ptBins[i];
-  float highcluster = ana::ptBins[i+1];
-  float minjet = (k == 1 ? ana::jet_calib_pt_cut[j] : ana::jet_pt_cut[j]);
+  float lowcluster = ana::ptBins[ipt1];
+  float highcluster = ana::ptBins[ipt1+1];
+  float minjet = (icalib1 == 1 ? ana::jet_calib_pt_cut[ir1] : ana::jet_pt_cut[ir1]);
   TLine * line = new TLine(minjet/lowcluster,0,minjet/lowcluster,h1->GetMaximum());
   line->SetLineStyle(8);
   line->Draw();
@@ -227,21 +232,21 @@ void draw_one(TCanvas * c, int ipt, int ir, int iabcd, int k) {
   l->AddEntry(h2,("MC Photon reco"));
   //l->AddEntry(h3,("MC Jet reco"));
   l->Draw();
-  if (iabcd == 0 || iabcd == 4) {
-    fitd[i][ir][k][0][0][iabcd]->Draw("same");
-    fitp[i][ir][k][0][0][iabcd]->Draw("same");
+  if (iabcd1 == 0 || iabcd1 == 4) {
+    f1[ipt1][ir1][icalib1][ibdt1][i3jet1][iabcd1]->Draw("same");
+    f2[ipt2][ir2][icalib2][ibdt2][i3jet2][iabcd2]->Draw("same");
     d.drawAll({
         "run 47289-53864",
         //"MC run28 Jet",
         "MC run28 Photon"},
-        {Form("%0.0f GeV < p_{T}^{cluster} < %0.0f GeV",ana::ptBins[i],ana::ptBins[i+1]),
+        {Form("%0.0f GeV < p_{T}^{cluster} < %0.0f GeV",ana::ptBins[ipt1],ana::ptBins[ipt1+1]),
         "p_{T}^{jet} > 3 GeV", 
-        Form("Jet R=%0.1f",ana::JetRs[j]), 
+        Form("Jet R=%0.1f",ana::JetRs[ir1]), 
         "Analysis cuts",
         calibstring,
-        t1[iabcd].c_str(),
-        Form("#bf{#mu_{data} = %0.2f #pm %0.2f}",fitd[i][ir][k][0][0][iabcd]->GetParameter(1),fitd[i][ir][k][0][0][iabcd]->GetParError(1)),
-        Form("#bf{#mu_{MC} = %0.2f #pm %0.2f}"  ,fitp[i][ir][k][0][0][iabcd]->GetParameter(1),fitp[i][ir][k][0][0][iabcd]->GetParError(1))
+        t1[iabcd1].c_str(),
+        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,f1[ipt1][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParameter(1),f1[ipt1][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParError(1)),
+        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,f2[ipt2][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParameter(1),f2[ipt2][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParError(1))
         },
         drawx,drawy,15,c->GetWh());
   }
@@ -250,12 +255,12 @@ void draw_one(TCanvas * c, int ipt, int ir, int iabcd, int k) {
         "run 47289-53864",
         //"MC run28 Jet",
         "MC run28 Photon"},
-        {Form("%0.0f GeV < p_{T}^{cluster} < %0.0f GeV",ana::ptBins[i],ana::ptBins[i+1]),
+        {Form("%0.0f GeV < p_{T}^{cluster} < %0.0f GeV",ana::ptBins[ipt1],ana::ptBins[ipt1+1]),
         "p_{T}^{jet} > 3 GeV", 
-        Form("Jet R=%0.1f",ana::JetRs[j]), 
+        Form("Jet R=%0.1f",ana::JetRs[ir1]), 
         "Analysis cuts",
         calibstring,
-        t1[iabcd].c_str()
+        t1[iabcd1].c_str()
         },
         drawx,drawy,15,c->GetWh());
   }
@@ -263,7 +268,7 @@ void draw_one(TCanvas * c, int ipt, int ir, int iabcd, int k) {
 }
 
 
-void comp_axj(TCanvas * c, const char * cname,
+void comp_axj(TCanvas * c, const char * cname, const char * info,
               TF1 * f1[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], int icalib1, int ibdt1, int i3jet1, int iabcd1, string info1, int color1, 
               TF1 * f2[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], int icalib2, int ibdt2, int i3jet2, int iabcd2, string info2, int color2) {
   c->SaveAs(Form("%s[",cname));
@@ -309,10 +314,14 @@ void comp_axj(TCanvas * c, const char * cname,
         },
         {
         "Analysis cuts",
+        info,
         Form("Jet R=%0.1f",ana::JetRs[ir]), 
         },
         .5, .8, 20, c->GetWh()*0.6);
 
+    TBox *texclude1 = new TBox(10,0,13.0,2);
+    texclude1->SetFillColorAlpha(kGray,0.3);
+    texclude1->Draw("same");
     p2->cd();
     gPad->SetBottomMargin(0.2);
     gPad->SetTicks(1,1);
@@ -326,6 +335,7 @@ void comp_axj(TCanvas * c, const char * cname,
     dummy->GetYaxis()->SetTitleOffset(1);
     dummy->GetYaxis()->SetRangeUser(.8,1.2);
 
+    dummy->GetXaxis()->SetTitle("Cluster p_{T}");
     dummy->GetXaxis()->SetLabelSize(0.06);
     dummy->GetXaxis()->SetTitleSize(0.06);
     dummy->GetXaxis()->SetTitleOffset(1);
@@ -340,6 +350,16 @@ void comp_axj(TCanvas * c, const char * cname,
     hdivide->SetMarkerSize(1);
     hdivide->Draw("same");
     d.drawLine(ana::ptBins[0],1,ana::ptBins[ana::nPtBins],1); 
+    
+    TBox *texclude2 = new TBox(10,0.8,13.0,1.2);
+    texclude2->SetFillColorAlpha(kGray,0.3);
+    texclude2->Draw("same");
+
+    TF1 * fline = new TF1(Form("func_%s",cname),"pol0",13,35);
+    hdivide->Fit(fline,"RQIM0");
+    fline->SetLineStyle(9);
+    fline->SetLineWidth(3);
+    fline->Draw("same");
 
     c->SaveAs(cname);
     c->Clear();
@@ -347,7 +367,7 @@ void comp_axj(TCanvas * c, const char * cname,
   c->SaveAs(Form("%s]",cname));
 }
 
-void comp_comp_axj(TCanvas * c, const char * cname,
+void comp_comp_axj(TCanvas * c, const char * cname, const char * variation,
               TF1 * f1[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], int icalib1, int ibdt1, int i3jet1, int iabcd1, string info1, int color1, 
               TF1 * f2[][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][5], int icalib2, int ibdt2, int i3jet2, int iabcd2, string info2, int color2) {
   c->SaveAs(Form("%s[",cname));
@@ -374,14 +394,16 @@ void comp_comp_axj(TCanvas * c, const char * cname,
     dummy->SetName(Form("d%i",ir));
     dummy->Reset("ICES");
 
-    dummy->GetYaxis()->SetTitle("Ratio data/MC");
+    gPad->SetBottomMargin(.15);
+    dummy->GetYaxis()->SetTitle(Form("Double Ratio Data/MC to %s Data/MC",variation));
     dummy->GetYaxis()->SetTitleSize(0.04);
     dummy->GetYaxis()->SetLabelSize(0.04);
     dummy->GetYaxis()->SetTitleOffset(1);
     dummy->GetYaxis()->SetRangeUser(.8,1.2);
 
-    dummy->GetXaxis()->SetLabelSize(0.06);
-    dummy->GetXaxis()->SetTitleSize(0.06);
+    dummy->GetXaxis()->SetTitle("Cluster p_{T}");
+    dummy->GetXaxis()->SetLabelSize(0.04);
+    dummy->GetXaxis()->SetTitleSize(0.04);
     dummy->GetXaxis()->SetTitleOffset(1);
 
     dummy->Draw();
@@ -404,14 +426,24 @@ void comp_comp_axj(TCanvas * c, const char * cname,
     
     d.drawAll(
         {
-        info1,
-        info2
         },
         {
         "Analysis cuts",
         Form("Jet R=%0.1f",ana::JetRs[ir]), 
+        variation,
         },
         .5, .8, 20, c->GetWh());
+    
+    TBox *texclude = new TBox(10,0.8,13.0,1.2);
+    texclude->SetFillColorAlpha(kGray,0.3);
+    texclude->Draw("same");
+
+    TF1 * func = new TF1(Form("func_%s",variation),"pol0",13,35);
+    hdivide->Fit(func,"RQIM0");
+    func->SetLineColor(kSpring+2);
+    func->SetLineStyle(9);
+    func->SetLineWidth(3);
+    func->Draw("same");
 
     c->SaveAs(cname);
     c->Clear();
@@ -421,6 +453,10 @@ void comp_comp_axj(TCanvas * c, const char * cname,
 
 void draw_all() {
   gStyle->SetOptStat(0);
+  if (!gROOT->IsBatch()) {
+    cout << "Run with -b flag or else!!" << endl;
+    return;
+  }
   
   cout << "formatting hists/funcs..." << endl;
   for (int i = 0; i < ana::nPtBins; i++ ) {
@@ -430,22 +466,34 @@ void draw_all() {
           for (int m = 0; m < ana::n3jetBins; m++ ) {
             for (int n = 0; n < 5; n++ ) {
               //cout << "Working on " << i << " " << j << " " << k << " " << l << " " << m << " " << n << endl;
+              float lowcluster = ana::ptBins[i];
+              float highcluster = ana::ptBins[i+1];
+              float minjet = (k ? ana::jet_calib_pt_cut[j] : ana::jet_pt_cut[j]);
+              if (n == 0 || n == 4) {
+                fitd[i][j][k][l][m][n] = d.fit(hratiod[i][j][k][l][m][n], (int)(minjet/lowcluster/0.08 + 1)*0.08,2, "RLQI0");
+                fitd[i][j][k][l][m][n]->SetParameter(0,fitd[i][j][k][l][m][n]->GetParameter(0)/hratiod[i][j][k][l][m][n]->GetEntries());
+                d.format(fitd[i][j][k][l][m][n],0);
+              }
 
               d.format(hratiod[i][j][k][l][m][n],0);
-              d.format(hratiop[i][j][k][l][m][n],1);
+              if (k <= 1) d.format(hratiop[i][j][k][l][m][n],1);
+              else d.format(hratiop[i][j][k][l][m][n],3);
               //d.format(hratioj[i][j][k][l][m][n],2);
               
               if (n == 0 || n == 4) {
-                float lowcluster = ana::ptBins[i];
-                float highcluster = ana::ptBins[i+1];
-                float minjet = (k == 1 ? ana::jet_calib_pt_cut[j] : ana::jet_pt_cut[j]);
-                fitd[i][j][k][l][m][n] = d.fit(hratiod[i][j][k][l][m][n], (int)(minjet/lowcluster/0.04 + 1)*0.04,2);
-                fitp[i][j][k][l][m][n] = d.fit(hratiop[i][j][k][l][m][n], (int)(minjet/lowcluster/0.04 + 1)*0.04,2);
+                fitp[i][j][k][l][m][n] = d.fit(hratiop[i][j][k][l][m][n], (int)(minjet/lowcluster/0.08 + 1)*0.08,2,"RMQI0");
                 //fitj[i][j][k][l][m][n] = d.fit(hratioj[i][j][k][l][m][n], (int)(minjet/lowcluster/0.04 + 1)*0.04,2);
-                d.format(fitd[i][j][k][l][m][n],0);
-                d.format(fitp[i][j][k][l][m][n],1);
+                if (k <= 1) d.format(fitp[i][j][k][l][m][n],1);
+                else d.format(fitp[i][j][k][l][m][n],3);
+                 
                 //d.format(fitj[i][j][k][l][m][n],2);
                 //cout << fitd[i][j][k][l][m][n]->GetParameter(1) << endl;
+              
+                // JUST FOR TESTING!!!!
+                fitd[i][j][k][l][m][n]->SetParameter(1,hratiod[i][j][k][l][m][n]->GetMean());
+                fitd[i][j][k][l][m][n]->SetParError(1,hratiod[i][j][k][l][m][n]->GetMeanError());
+                fitp[i][j][k][l][m][n]->SetParameter(1,hratiop[i][j][k][l][m][n]->GetMean());
+                fitp[i][j][k][l][m][n]->SetParError(1,hratiop[i][j][k][l][m][n]->GetMeanError());
               }
             }
           }
@@ -474,48 +522,82 @@ void draw_all() {
   cone_calib->SaveAs("/home/samson72/sphnx/gammajet/pdfs/oneabcd_calib.pdf[");
   for (int iabcd = 0; iabcd < 5; iabcd++) {
     cone_calib->Clear();
-    draw_one(cone_calib,i,j,iabcd,1);
+    draw_one(cone_calib,cone_calib->GetName(),"Data","MC Photon", hratiod,hratiop,fitd,fitp,i,j,1,0,0,iabcd,i,j,1,0,0,iabcd);
     cone_calib->SaveAs("/home/samson72/sphnx/gammajet/pdfs/oneabcd_calib.pdf");
   }
   cone_calib->SaveAs("/home/samson72/sphnx/gammajet/pdfs/oneabcd_calib.pdf]");
 
   cout << "Drawing many bins..." << endl;
-  TCanvas * cmany = new TCanvas("cmany","",csize*4,csize*3);
-  draw_many(cmany);
-  cmany->SaveAs("/home/samson72/sphnx/gammajet/pdfs/manyabcd_calib.pdf");
+  TCanvas * cmany1 = new TCanvas("cmany1","",csize*4,csize*3);
+  draw_many(
+    cmany1, cmany1->GetName(), "Data", "MC Photon",
+    hratiod, hratiop, fitd, fitp,      
+    1, 1, 0, 0, 0,
+    1, 1, 0, 0, 0);
+  cmany1->SaveAs("/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA.pdf");
+  
+  TCanvas * cmany2 = new TCanvas("cmany2","",csize*4,csize*3);
+  draw_many(
+    cmany2, cmany2->GetName(), "Data", "MC Photon",
+    hratiod, hratiop, fitd, fitp,      
+    1, 1, 1, 0, 0,
+    1, 1, 1, 0, 0);
+  cmany2->SaveAs("/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_narrowBDT.pdf");
+  
+  TCanvas * cmany3 = new TCanvas("cmany3","",csize*4,csize*3);
+  draw_many(
+    cmany3, cmany3->GetName(), "Data", "MC Photon",
+    hratiod, hratiop, fitd, fitp,      
+    1, 1, 0, 1, 0,
+    1, 1, 0, 1, 0);
+  cmany3->SaveAs("/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_3jetCut.pdf");
+  
+  TCanvas * cmany4 = new TCanvas("cmany4","",csize*4,csize*3);
+  draw_many(
+    cmany4, cmany4->GetName(), "MC Photon", "MC Photon smeared",
+    hratiop, hratiop, fitp, fitp,      
+    1, 1, 0, 0, 0,
+    1, 2, 0, 0, 0);
+  cmany4->SaveAs("/home/samson72/sphnx/gammajet/pdfs/allptbins_MC_R04_regionA_smear.pdf");
 
   cout << "Drawing <xj>..." << endl;
   TCanvas * caxj1 = new TCanvas("caxj1","",1000,1000);
-  comp_axj(caxj1,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA.pdf",
+  comp_axj(caxj1,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA.pdf","Nominal",
     fitd, 1, 0, 0, 0, "Data", kBlue,
     fitp, 1, 0, 0, 0, "MC Photon", kMagenta+1);
   TCanvas * caxj1comp = new TCanvas("caxj1comp","",1000,600);
-  comp_comp_axj(caxj1comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_comp.pdf",
+  comp_comp_axj(caxj1comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_comp.pdf","Nominal",
     fitd, 1, 0, 0, 0, "Data", kBlue,
     fitp, 1, 0, 0, 0, "MC Photon", kMagenta+1);
   
   TCanvas * caxj2 = new TCanvas("caxj2","",1000,1000);
-  comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT.pdf",
+  comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT.pdf","Narrow BDT score",
     fitd, 1, 1, 0, 0, "Data", kBlue,
     fitp, 1, 1, 0, 0, "MC Photon", kMagenta+1);
   TCanvas * caxj2comp = new TCanvas("caxj2comp","",1000,600);
-  comp_comp_axj(caxj2comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT_comp.pdf",
+  comp_comp_axj(caxj2comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT_comp.pdf", "Narrow BDT score",
     fitd, 1, 1, 0, 0, "Data", kBlue,
     fitp, 1, 1, 0, 0, "MC Photon", kMagenta+1);
   
   TCanvas * caxj3 = new TCanvas("caxj3","",1000,1000);
-  comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut.pdf",
+  comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut.pdf", "Third Jet Cut",
     fitd, 1, 0, 1, 0, "Data", kBlue,
     fitp, 1, 0, 1, 0, "MC Photon", kMagenta+1);
   TCanvas * caxj3comp = new TCanvas("caxj3comp","",1000,600);
-  comp_comp_axj(caxj3comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut_comp.pdf",
+  comp_comp_axj(caxj3comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut_comp.pdf", "Third Jet cut",
     fitd, 1, 0, 1, 0, "Data", kBlue,
     fitp, 1, 0, 1, 0, "MC Photon", kMagenta+1);
   
+  //TCanvas * caxj4comp = new TCanvas("caxj4comp","",1000,600);
+  //comp_comp_axj(caxj4comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_comp.pdf","Nominal",
+  //  fitd, 1, 0, 0, 0, "Data", kBlue,
+  //  fitp, 1, 0, 0, 0, "MC Photon", kMagenta+1);
+  
   
   TCanvas * caxj4 = new TCanvas("caxj4","",1000,1000);
-  comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_smear.pdf",
-    fitp, 2, 0, 0, 0, "MC Photon", kMagenta+1,
+  comp_axj(caxj4,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_smear.pdf", "JER smeared",
+    fitp, 1, 0, 0, 0, "MC Photon", kMagenta+1,
     fitp, 2, 0, 0, 0, "MC Photon smeared", kMagenta+4);
+
 
 }

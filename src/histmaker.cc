@@ -7,10 +7,8 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
   bool useshowershape = 0;
   float dphi = jet.deltaPhi(pho);
   float jetval = jet.pt;
-  if (icalib == 2) jetval = rand->Gaus(jetval, jetval*0.08);
   float phoval = pho.pt;
   float val = jetval/phoval;
-  if (val == 0) cout << jetval << " " << phoval << endl;
   int ipt = ana::findPtBin(pho.pt);
   if (icalib == 0) {
     hdeltaphi[ipt][ir]->Fill(dphi);
@@ -22,36 +20,42 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
   if (dphi < ana::oppcut) return false;
   if (ipt < 0) return false;
   if (useshowershape && pho.showershape == 0) return false;
-  bool hasthirdjet = getthirdjet(pho, jet, jets, ir, icalib);
-  bool istight = pho.showershape == 2;
+  
+  jet_object thirdjet = getthirdjet(pho, jet, jets, ir, icalib);
+  bool hasthirdjet = thirdjet.pt > 0;
 
-  // Get the ABCD info
+  // Get the ABCD info and fill
+  int iabcd[ana::nIsoBdtBins];
   for (int iib = 0; iib < ana::nIsoBdtBins; iib++) {
-    if (!useshowershape && (pho.iso4 > ana::isoBins[iib] && pho.iso4 < ana::isoBinsHigh[iib])) continue;
-    if (pho.bdt < ana::bdtCuts[iib]) continue;
-    
-    bool isiso = pho.iso4 < ana::isoBins[iib];
-    bool isbdt = pho.bdt > ana::bdtBins[iib];
-    int iabcd;
     if (useshowershape) {
-      iabcd = (((isiso << 0b1) | istight) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.showershape, iib);
     }
     else {
-      iabcd = (((isiso << 0b1) | isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
     }
-    hratio[ipt][ir][icalib][iib][0][iabcd]->Fill(val); 
-    if (hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd]->Fill(val);
+    if (iabcd[iib] == -1) continue;
+
+    hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val); 
+    if (!hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd[iib]]->Fill(val);
   }
  
-  int ixj = ana::findxjBin(val);
-  if (icalib == 0) { 
+  if (icalib == 1) { 
     hjetpt[ir]->Fill(jet.pt); 
     hjeteta[ir]->Fill(jet.eta); 
     if (jet.emfrac > 0.8) hjetetahighem[ir]->Fill(jet.eta); 
     if (jet.emfrac < 0.5) hjetetalowem[ir]->Fill(jet.eta); 
     hjetetaphi[ir]->Fill(jet.eta,jet.phi); 
     hemfrac[ipt][ir]->Fill(jet.emfrac);
+    int ixj = ana::findxjBin(val);
     if (ixj >= 0) hjetetaxj[ixj][ir]->Fill(jet.eta);
+    if (iabcd[0] == 0 && hasthirdjet) {
+      h3jetpt[ir]->Fill(pho.pt,thirdjet.pt);
+      h3jetdeltar[ipt][ir]->Fill(thirdjet.deltaR(jet));
+    }
+    if (pho.iso4 < ana::isoBins[0] && pho.pt > 16 && pho.pt < 25) {
+      int ibdt = ana::findBdtBin(pho.bdt);
+      hxjbdt[ibdt][ir]->Fill(val);
+    }
   }
   return true;
 }
@@ -176,7 +180,7 @@ void histmaker::make_hists()
         loop(maxjet_calib[ir], jets_calib[ir], ir, maxpho, 1);
       }
       if (isMC && maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
-        loop(maxjet_calib[ir], jets_calib[ir], ir, maxpho, 2);
+        loop(maxjet_smear[ir], jets_smear[ir], ir, maxpho, 2);
       }
       
       anypaired |= ispaired[ir];
@@ -252,28 +256,24 @@ pho_object histmaker::getmaxpho(vector<pho_object> phos) {
   return max;
 }
 // Checks if there's a third jet in the event
-bool histmaker::getthirdjet(pho_object maxpho, jet_object maxjet, vector<jet_object> jets, int ir, int icalib) {
-  bool is3jet = false;
-  float maxpt = 0;
-  float maxpteta = 0;
+jet_object histmaker::getthirdjet(pho_object maxpho, jet_object maxjet, vector<jet_object> jets, int ir, int icalib) {
+  jet_object max3jet;
+  //if (jets.size() > 2) {
   //cout << "Jets of radius " << ana::JetRs[ir] << ": " << jets.size() << endl;
   //cout << " pho eta: " << maxpho.eta << "  pho phi: " << maxpho.phi << endl;
   //cout << " jet eta: " << maxjet.eta << "  jet phi: " << maxjet.phi << endl;
+  //}
+  float ptcut = (icalib ? ana::jet_calib_pt_cut[ir] : ana::jet_pt_cut[ir]);
   for (int i = 0; i < jets.size(); i++) {
     jet_object jet = jets.at(i);
+    if (jet.pt < ptcut) continue;
+    //if (jets.size() > 2) cout << "3jet eta: " << jet.eta << " 3jet phi: " << jet.phi << " 3jet dRp: " << maxpho.deltaR(jet) << " 3jet dRj: " << maxjet.deltaR(jet) << " 3jet pt: " << jet.pt << endl;
     if (maxpho.deltaR(jet) > ana::drcut[ir] && maxjet.deltaR(jet) > ana::drcut[ir]) {
       //cout << "3jet eta: " << jet.eta << " 3jet phi: " << jet.phi << " 3jet dRp: " << maxpho.deltaR(jet) << " 3jet dRj: " << maxjet.deltaR(jet) << " 3jet pt: " << jet.pt << endl;
-      is3jet = true;
-      if (jet.pt > maxpt) maxpt = jet.pt;
-      if (jet.pt > maxpteta && abs(jet.eta) < 1.1 - ana::JetRs[ir]) maxpteta = jet.pt;
+      if (jet.pt > max3jet.pt) max3jet = jet;
     }
   }
-  int ipt = ana::findPtBin(maxpho.pt);
-  if (maxpho.bdt > ana::bdtBins[0] && maxpho.iso4 < ana::isoBins[0]) {
-    if (maxpt > 0 && icalib) h3jetpt[ipt][ir]->Fill(maxpt);
-    if (maxpteta > 0 && icalib) h3jetpteta[ipt][ir]->Fill(maxpt);
-  }
-  return is3jet;
+  return max3jet;
 }
 
 // Gets the fragmentation function of the cluster
@@ -310,6 +310,13 @@ void histmaker::savehists(TH1D * h[][ana::nJetR], int n, int m) {
     }
   }
 }
+void histmaker::savehists(TH2D * h[][ana::nJetR], int n, int m) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      h[i][j]->Write();
+    }
+  }
+}
 void histmaker::end() {
   const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/hists%s.root",trigger.c_str());
   TFile *wf = TFile::Open(wfilename,"recreate");
@@ -333,9 +340,9 @@ void histmaker::end() {
   savehists(hemfrac,ana::nPtBins,ana::nJetR);
   savehists(hdeltaphi,ana::nPtBins,ana::nJetR);
   savehists(hdeltaphiprecut,ana::nPtBins,ana::nJetR);
-  savehists(h3jetpt,ana::nPtBins,ana::nJetR);
-  savehists(h3jetpteta,ana::nPtBins, ana::nJetR);
+  savehists(h3jetdeltar,ana::nPtBins, ana::nJetR);
   savehists(hjetetaxj,ana::nxjBins,ana::nJetR);
+  savehists(hxjbdt,ana::nBdtBins,ana::nJetR);
   
   savehists(hjetpt,ana::nJetR);
   savehists(hjetptprecut,ana::nJetR);
@@ -354,6 +361,7 @@ void histmaker::end() {
   savehists(hdeltar,ana::nJetR);
   savehists(hJES,ana::nJetR);
   savehists(hjetsmear,ana::nJetR);
+  savehists(h3jetpt,ana::nJetR);
   
   savehists(hbdt,11);
   

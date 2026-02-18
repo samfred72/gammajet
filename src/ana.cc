@@ -39,16 +39,80 @@ Int_t ana::findxjBin(double value)
   }
   return -1;
 }
-
-Int_t ana::findabcdBin(double value)
+Int_t ana::findBdtBin(double value)
 {
-  for (int i = 0; i < nabcdbins; ++i) {
-    if (value >= abcdbins[i] && value < abcdbins[i + 1]) {
+  for (int i = 0; i < nBdtBins; ++i) {
+    if (value >= bdtBins[i] && value < bdtBins[i + 1]) {
       return  i;
     }
   }
-  if (value > abcdbins[nabcdbins-1]) return nabcdbins-1;
-  else return -1;
+  return -1;
+}
+
+Int_t ana::findabcdBin(double iso, double bdt, int bin)
+{
+  int isiso;
+  int isbdt;
+  if (iso < isoBins[bin]) {
+    isiso = 1;
+  }
+  else if (iso > isoBinsHigh[bin]) {
+    isiso = 0;
+  }
+  else {
+    isiso = -1;
+  }
+  if (bdt > bdtGoodLow[bin] && bdt < bdtGoodHigh[bin]) {
+    isbdt = 1;
+  }
+  else if (bdt > bdtBadLow[bin] && bdt < bdtBadHigh[bin]) {
+    isbdt = 0;
+  }
+  else {
+    isbdt = -1;
+  }
+
+  if (isiso == -1 || isbdt == -1) {
+    return -1;
+  }
+  else {
+    bool b_isiso = isiso;
+    bool b_isbdt = isbdt;
+    int iabcd = (((b_isiso << 0b1) | b_isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    return iabcd;
+  }
+}
+
+Int_t ana::findabcdBin(double iso, int showershape, int bin) {
+  int isiso;
+  int istight;
+  if (iso < isoBins[bin]) {
+    isiso = 1;
+  }
+  else if (iso > isoBinsHigh[bin]) {
+    isiso = 0;
+  }
+  else {
+    isiso = -1;
+  }
+  if (showershape == 2) {
+    istight = 1;
+  }
+  else if (showershape == 1) {
+    istight = 0;
+  }
+  else {
+    istight = -1;
+  }
+  if (isiso == -1 || istight == -1) {
+    return -1;
+  }
+  else {
+    bool b_isiso = isiso;
+    bool b_istight = istight;
+    int iabcd = (((b_isiso << 0b1) | b_istight) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    return iabcd;
+  }
 }
 
 float ana::getPurity(float low, float high) {

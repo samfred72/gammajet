@@ -45,25 +45,25 @@ void draw_isobdt() {
   TH2D * hdata = (TH2D*)f->Get(histname);
   TH2D * hmcp = d.combineMC2d(histname,1);
  
-  TLine * l1 = new TLine(ana::isoBins[0], ana::bdtBins[0], ana::isoBins[0],1);
-  TLine * l2 = new TLine(-1,1,ana::isoBins[0],1);
-  TLine * l3 = new TLine(-1,1,-1,ana::bdtBins[0]);
-  TLine * l4 = new TLine(-1,ana::bdtBins[0],ana::isoBins[0],ana::bdtBins[0]);
+  TLine * l1 = new TLine(ana::isoBins[0], ana::bdtGoodLow[0], ana::isoBins[0], ana::bdtGoodHigh[0]);
+  TLine * l2 = new TLine(-1,ana::bdtGoodHigh[0],ana::isoBins[0],ana::bdtGoodHigh[0]);
+  TLine * l3 = new TLine(-1,ana::bdtGoodHigh[0],-1,ana::bdtGoodLow[0]);
+  TLine * l4 = new TLine(-1,ana::bdtGoodLow[0],ana::isoBins[0],ana::bdtGoodLow[0]);
   
-  TLine * l5 = new TLine(-1,ana::bdtCuts[0],ana::isoBins[0],ana::bdtCuts[0]);
-  TLine * l6 = new TLine(ana::isoBins[0],ana::bdtCuts[0],ana::isoBins[0],ana::bdtCutsHigh[0]);
-  TLine * l7 = new TLine(ana::isoBins[0],ana::bdtCutsHigh[0],-1,ana::bdtCutsHigh[0]);
-  TLine * l8 = new TLine(-1,ana::bdtCutsHigh[0],-1,ana::bdtCuts[0]);
+  TLine * l5 = new TLine(-1,ana::bdtBadLow[0],ana::isoBins[0],ana::bdtBadLow[0]);
+  TLine * l6 = new TLine(ana::isoBins[0],ana::bdtBadLow[0],ana::isoBins[0],ana::bdtBadHigh[0]);
+  TLine * l7 = new TLine(ana::isoBins[0],ana::bdtBadHigh[0],-1,ana::bdtBadHigh[0]);
+  TLine * l8 = new TLine(-1,ana::bdtBadHigh[0],-1,ana::bdtBadLow[0]);
   
-  TLine * l9 = new TLine(ana::isoBinsHigh[0],ana::bdtCuts[0],20,ana::bdtCuts[0]);
-  TLine * l10 = new TLine(20,ana::bdtCuts[0],20,ana::bdtCutsHigh[0]);
-  TLine * l11 = new TLine(20,ana::bdtCutsHigh[0],ana::isoBinsHigh[0],ana::bdtCutsHigh[0]);
-  TLine * l12 = new TLine(ana::isoBinsHigh[0],ana::bdtCutsHigh[0],ana::isoBinsHigh[0],ana::bdtCuts[0]);
+  TLine * l9 = new TLine(ana::isoBinsHigh[0],ana::bdtBadLow[0],20,ana::bdtBadLow[0]);
+  TLine * l10 = new TLine(20,ana::bdtBadLow[0],20,ana::bdtBadHigh[0]);
+  TLine * l11 = new TLine(20,ana::bdtBadHigh[0],ana::isoBinsHigh[0],ana::bdtBadHigh[0]);
+  TLine * l12 = new TLine(ana::isoBinsHigh[0],ana::bdtBadHigh[0],ana::isoBinsHigh[0],ana::bdtBadLow[0]);
   
-  TLine * l13 = new TLine(ana::isoBinsHigh[0],ana::bdtBins[0],20,ana::bdtBins[0]);
-  TLine * l14 = new TLine(20,ana::bdtBins[0],20,1);
-  TLine * l15 = new TLine(20,1,ana::isoBinsHigh[0],1);
-  TLine * l16 = new TLine(ana::isoBinsHigh[0],1,ana::isoBinsHigh[0],ana::bdtBins[0]);
+  TLine * l13 = new TLine(ana::isoBinsHigh[0],ana::bdtGoodLow[0],20,ana::bdtGoodLow[0]);
+  TLine * l14 = new TLine(20,ana::bdtGoodLow[0],20,ana::bdtGoodHigh[0]);
+  TLine * l15 = new TLine(20,ana::bdtGoodHigh[0],ana::isoBinsHigh[0],ana::bdtGoodHigh[0]);
+  TLine * l16 = new TLine(ana::isoBinsHigh[0],ana::bdtGoodHigh[0],ana::isoBinsHigh[0],ana::bdtGoodLow[0]);
 
   const int nlines = 16;
   TLine * lines[nlines] = {l1,l2,l3,l4,l5,l6,l7,l8,l9,l10,l11,l12,l13,l14,l15,l16};
@@ -83,9 +83,9 @@ void draw_isobdt() {
   }
   d.drawAll({"Data"},{Form("%0.0f GeV < p_{T} < %0.0f GeV",ana::ptBins[ptbin],ana::ptBins[ptbin+1]),"Paired clusters"},drawx,drawy,fontsize,700);
   d.drawText("A",.15,.90, kBlack, 25);
-  d.drawText("B",.15,ana::bdtCutsHigh[0]-.05, kBlack, 25);
+  d.drawText("B",.15,ana::bdtBadHigh[0]-.05, kBlack, 25);
   d.drawText("C",.35,.90, kBlack, 25);
-  d.drawText("D",.35,ana::bdtCutsHigh[0]-.05, kBlack, 25);
+  d.drawText("D",.35,ana::bdtBadHigh[0]-.05, kBlack, 25);
   
   c->cd(2);
   gPad->SetRightMargin(.15);
@@ -99,9 +99,9 @@ void draw_isobdt() {
   //d.drawAll({"MC Photon"},{Form("%0.0f GeV < p_{T} < %0.0f GeV",ana::ptBins[ptbin],ana::ptBins[ptbin+1]),"Paired clusters"},drawx-0.2,drawy,fontsize,700);
   d.drawText("MC Photon",drawx,drawy-0.05,kBlack,(int)(fontsize*1.25));
   d.drawText("A",.05,.90, kBlack, 25);
-  d.drawText("B",.05,ana::bdtCutsHigh[0]-.05, kBlack, 25);
+  d.drawText("B",.05,ana::bdtBadHigh[0]-.05, kBlack, 25);
   d.drawText("C",.25,.90, kBlack, 25);
-  d.drawText("D",.25,ana::bdtCutsHigh[0]-.05, kBlack, 25);
+  d.drawText("D",.25,ana::bdtBadHigh[0]-.05, kBlack, 25);
 
   c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/isobdt.pdf");
 

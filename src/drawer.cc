@@ -44,7 +44,7 @@ void drawer::drawAll(vector<string> samples, vector<string> features, float draw
 }
 
 void drawer::format(TH1D * h, int type) {
-  int colors[3] = {kBlue, kMagenta+1, kSpring+2};
+  int colors[4] = {kBlue, kMagenta+1, kSpring+2, kGray+3};
   h->SetLineColor(colors[type]);
   scale(h,0,2);
   h->GetYaxis()->SetRangeUser(0,h->GetMaximum()*1.5);
@@ -52,7 +52,7 @@ void drawer::format(TH1D * h, int type) {
   else h->SetLineWidth(1);
 }
 void drawer::format(TF1 * f, int type) {
-  int colors[3] = {kBlue, kMagenta+1, kSpring+2};
+  int colors[4] = {kBlue, kMagenta+1, kSpring+2, kGray+3};
   f->SetLineColor(colors[type]);
   f->SetLineWidth(1);
 }
@@ -73,10 +73,10 @@ void drawer::scale(TH1D * h, float low, float high) {
   h->Scale(1.0/entries_in_range);
 }
 
-TF1 * drawer::fit(TH1D * h, float low, float high) {
+TF1 * drawer::fit(TH1D * h, float low, float high, const char * options) {
   TF1 * func = new TF1(Form("func_%s",h->GetName()), "gaus", low, high);
   func->SetParameters(0.1,0.7,0.3);
-  if (h->GetEntries() > 0) h->Fit(func,"RQIM0");
+  if (h->GetEntries() > 0) h->Fit(func,options);
   return func;
 }
 
@@ -120,6 +120,34 @@ TH2D * drawer::combineMC2d(const char * histname, bool isphoton) {
     delete hists[i];
   }
   return thehist;
+}
+TH1D * drawer::get(const char * histname, int type) {
+  if (type == 0) {
+    return (TH1D*)dfiles[0]->Get(histname);
+  }
+  else if (type == 1) {
+    return combineMC(histname,1);
+  }
+  else if (type == 2) {
+    return combineMC(histname,0);
+  }
+  else {
+    return nullptr;
+  }
+}
+TH2D * drawer::get2d(const char * histname, int type) {
+  if (type == 0) {
+    return (TH2D*)dfiles[0]->Get(histname);
+  }
+  else if (type == 1) {
+    return combineMC2d(histname,1);
+  }
+  else if (type == 2) {
+    return combineMC2d(histname,0);
+  }
+  else {
+    return nullptr;
+  }
 }
 
 TH1D * drawer::combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, string name) { 

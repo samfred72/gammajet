@@ -22,8 +22,10 @@ class ana {
     static Double_t GetShiftedEta(float _vz, float _eta);
     static float    getPurity(float low, float high);
     static Int_t findPtBin(double value);
-    static Int_t findabcdBin(double value);
+    static Int_t findabcdBin(double iso, double bdt, int bin = 0);
+    static Int_t findabcdBin(double iso, int showershape, int bin = 0);
     static Int_t findxjBin(double value);
+    static Int_t findBdtBin(double value);
 
     static constexpr float sPHENIX_posx = 0.6;
     static constexpr float sPHENIX_posy = 0.85;
@@ -49,18 +51,19 @@ class ana {
 
     static constexpr int nCalibBins = 3;
     static constexpr int nPtBins = 9;
-    static constexpr int nabcdbins = 20;
     static constexpr int nIsoBdtBins = 3;
+    static constexpr int nBdtBins = 4;
     static constexpr int nxjBins = 3;
     static constexpr int nJetR = 4;
     static constexpr int n3jetBins = 2;
     static constexpr double ptBins[nPtBins+1] = {10,11,12,13,14,15,17,19,25,35};
-    static constexpr double abcdbins[nabcdbins+1] = {10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
     static constexpr double isoBins[nIsoBdtBins] = {2,2,2};
     static constexpr double isoBinsHigh[nIsoBdtBins] = {4,4,4};
-    static constexpr double bdtBins[nIsoBdtBins] = {0.8, 0.9, 0.7};
-    static constexpr double bdtCutsHigh[nIsoBdtBins] = {0.6, 0.6, 0.6};
-    static constexpr double bdtCuts[nIsoBdtBins] = {0.2, 0.2, 0.2};
+    static constexpr double bdtGoodHigh[nIsoBdtBins] = {1.0, 1.0, 1.0};
+    static constexpr double bdtGoodLow[nIsoBdtBins] = {0.8, 0.9, 0.7};
+    static constexpr double bdtBadHigh[nIsoBdtBins] = {0.6, 0.6, 0.6};
+    static constexpr double bdtBadLow[nIsoBdtBins] = {0.2, 0.2, 0.2};
+    static constexpr double bdtBins[nBdtBins+1] = {0.4,0.7,0.8,0.9,1.0};
     static constexpr double xjBins[nxjBins+1] = {0,0.3,0.7,2.0};
     static constexpr double JetRs[nJetR] = {0.2, 0.4, 0.6, 0.8};
     static constexpr double drcut[nJetR] = {0.2, 0.4, 0.6, 0.8};

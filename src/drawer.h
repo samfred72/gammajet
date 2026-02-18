@@ -43,11 +43,13 @@ class drawer {
     void scale(TH1D * h, float low = 0, float high = 2);
     void format(TH1D * h, int type);
     void format(TF1 * h, int type);
-    TF1 * fit(TH1D * h, float low, float high);
+    TF1 * fit(TH1D * h, float low, float high, const char * options);
     vector<vector<vector<vector<vector<vector<TH1D*>>>>>> collect_hists(const char * histname, int type);
     TH1D * combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, string name); 
     TH1D * combineMC(const char * histname, bool isphoton); 
     TH2D * combineMC2d(const char * histname, bool isphoton); 
+    TH1D * get(const char * histname, int type);
+    TH2D * get2d(const char * histname, int type);
 
   private :
 
