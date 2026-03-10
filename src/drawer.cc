@@ -1,6 +1,3 @@
-#ifndef DRAWER_H
-#define DRAWER_H
-
 #include "drawer.h"
 using namespace std;
 
@@ -157,8 +154,8 @@ TH1D * drawer::combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, st
   h->Add(A,C,1/p,-(1-p)/p);
   return h;
 }
-vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(const char * histname, int type) {
-  vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hists(
+vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::get_empty_TH1D() {
+  vector<vector<vector<vector<vector<vector<TH1D*>>>>>> v(
       ana::nPtBins, 
       vector<vector<vector<vector<vector<TH1D*>>>>>(
         ana::nJetR, 
@@ -170,6 +167,40 @@ vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(cons
               ana::n3jetBins,
               vector<TH1D*>(
                 5)))))); // 5 for ABCD and the combined one
+  return v;
+}
+vector<vector<vector<vector<vector<vector<TF1*>>>>>> drawer::get_empty_TF1() {
+  vector<vector<vector<vector<vector<vector<TF1*>>>>>> v(
+      ana::nPtBins, 
+      vector<vector<vector<vector<vector<TF1*>>>>>(
+        ana::nJetR, 
+        vector<vector<vector<vector<TF1*>>>>(
+          ana::nCalibBins, 
+          vector<vector<vector<TF1*>>>(
+            ana::nIsoBdtBins,
+            vector<vector<TF1*>>(
+              ana::n3jetBins,
+              vector<TF1*>(
+                5)))))); // 5 for ABCD and the combined one
+  return v;
+}
+vector<vector<vector<vector<vector<vector<float>>>>>> drawer::get_empty_float() {
+  vector<vector<vector<vector<vector<vector<float>>>>>> v(
+      ana::nPtBins, 
+      vector<vector<vector<vector<vector<float>>>>>(
+        ana::nJetR, 
+        vector<vector<vector<vector<float>>>>(
+          ana::nCalibBins, 
+          vector<vector<vector<float>>>(
+            ana::nIsoBdtBins,
+            vector<vector<float>>(
+              ana::n3jetBins,
+              vector<float>(
+                5)))))); // 5 for ABCD and the combined one
+  return v;
+}
+vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(const char * histname, int type) {
+  vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hists = get_empty_TH1D();
 
   bool isphoton = type == 1;
   int nrebin = 4;
@@ -207,4 +238,3 @@ vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(cons
   return hists;
 }
 
-#endif // DRAWER_H

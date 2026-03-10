@@ -18,11 +18,16 @@ void draw_timing() {
   int colors[ana::nJetR] = {kBlue, kBlack, kRed, kGreen};
   TLegend * l = new TLegend(.2,.6,.4,.8);
   l->SetLineWidth(0);
+  gPad->SetBottomMargin(.15);
   for (int ir = 0; ir < ana::nJetR; ir++) {
     h[ir]->SetLineColor(colors[ir]);
     h[ir]->SetLineWidth(2);
     d.scale(h[ir]);
     h[ir]->GetYaxis()->SetRangeUser(0,h[ir]->GetMaximum()*1.2);
+    h[ir]->GetXaxis()->SetLabelSize(0.05);
+    h[ir]->GetXaxis()->SetTitleSize(0.05);
+    h[ir]->GetYaxis()->SetLabelSize(0.05);
+    h[ir]->GetYaxis()->SetTitleSize(0.05);
     h[ir]->Draw("hist same");
     l->AddEntry(h[ir],Form("R = %1.1f",ana::JetRs[ir]));
   }
@@ -34,8 +39,20 @@ void draw_timing() {
   p->Draw();
   p->Divide(1,2);
   p->cd(1);
+  gPad->SetBottomMargin(.2);
+  gPad->SetLeftMargin(.11);
+  hc->GetXaxis()->SetLabelSize(0.08);
+  hc->GetXaxis()->SetTitleSize(0.08);
+  hc->GetYaxis()->SetLabelSize(0.08);
+  hc->GetYaxis()->SetTitleSize(0.08);
   hc->Draw();
   p->cd(2);
+  gPad->SetBottomMargin(.2);
+  gPad->SetLeftMargin(.11);
+  hj->GetXaxis()->SetLabelSize(0.08);
+  hj->GetXaxis()->SetTitleSize(0.08);
+  hj->GetYaxis()->SetLabelSize(0.08);
+  hj->GetYaxis()->SetTitleSize(0.08);
   hj->Draw();
 
   c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/timing.pdf");

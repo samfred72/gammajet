@@ -1,3 +1,6 @@
+#ifndef DRAWER_H
+#define DRAWER_H
+
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 #include <string>
 #include <vector>
@@ -34,6 +37,16 @@ class drawer {
       jfiles[4] = f50_j;
       jfiles[5] = f70_j;
     }
+    drawer(bool unfolding) {
+      TFile * f05_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon5"));
+      TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon10"));
+      TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon20"));
+
+      pfiles[0] = f05_p;
+      pfiles[1] = f10_p;
+      pfiles[2] = f20_p;
+
+    }
     ~drawer(); 
 
     void drawLine(float x1, float y1, float x2, float y2);
@@ -45,6 +58,9 @@ class drawer {
     void format(TF1 * h, int type);
     TF1 * fit(TH1D * h, float low, float high, const char * options);
     vector<vector<vector<vector<vector<vector<TH1D*>>>>>> collect_hists(const char * histname, int type);
+    vector<vector<vector<vector<vector<vector<TH1D*>>>>>> get_empty_TH1D();
+    vector<vector<vector<vector<vector<vector<TF1*>>>>>> get_empty_TF1();
+    vector<vector<vector<vector<vector<vector<float>>>>>> get_empty_float();
     TH1D * combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, string name); 
     TH1D * combineMC(const char * histname, bool isphoton); 
     TH2D * combineMC2d(const char * histname, bool isphoton); 
@@ -68,3 +84,5 @@ class drawer {
       {1,{{5,146359.3},{10,6944.675},{20,130.4461}}}
     };
 };
+
+#endif // DRAWER_H

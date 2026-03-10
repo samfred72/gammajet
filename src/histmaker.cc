@@ -85,6 +85,7 @@ void histmaker::make_hists()
       jets.push_back(make_jets(jet_pt->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
       jets_calib.push_back(make_jets(jet_pt_calib->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
       if (isMC) jets_smear.push_back(make_jets(jet_pt_smear->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
+      else jets_smear.push_back(jets_calib.at(i));
     }
     
     // Fill time histos before any cuts
@@ -149,12 +150,6 @@ void histmaker::make_hists()
         hbdt[j]->Fill(cluster_bdt_scores->at(j).at(i));
       }
     }
-    for (int ir = 0; ir < ana::nJetR; ir++) {
-      for (int ij = 0; ij < jets.at(ir).size(); ij++) {
-        hJES[ir]->Fill(jets.at(ir).at(ij).pt,jets.at(ir).at(ij).pt/jets_calib.at(ir).at(ij).pt);
-        if (isMC) hjetsmear[ir]->Fill(jets.at(ir).at(ij).pt,jets_smear.at(ir).at(ij).pt);
-      }
-    }
     
     // Now actually find the jet and photon objects
     pho_object maxpho = getmaxpho(clusters); 
@@ -172,6 +167,7 @@ void histmaker::make_hists()
       maxjet[ir] = getmaxjet(jets[ir], maxpho,ir);
       maxjet_calib[ir] = getmaxjet(jets_calib[ir], maxpho,ir);
       if (isMC) maxjet_smear[ir] = getmaxjet(jets_smear[ir], maxpho,ir);
+      else maxjet_smear[ir] = maxjet_calib[ir];
       // Fill the xJ histograms
       if (maxjet[ir].pt > ana::jet_pt_cut[ir] && isc && isj[ir]) {
         ispaired[ir] =    loop(maxjet[ir], jets[ir], ir, maxpho, 0);
@@ -179,7 +175,7 @@ void histmaker::make_hists()
       if (maxjet_calib[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
         loop(maxjet_calib[ir], jets_calib[ir], ir, maxpho, 1);
       }
-      if (isMC && maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
+      if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
         loop(maxjet_smear[ir], jets_smear[ir], ir, maxpho, 2);
       }
       
