@@ -3,10 +3,15 @@
 R__LOAD_LIBRARY(libgammajet.so);
 R__LOAD_LIBRARY(libRooUnfold.so);
 
-void unfold(string trigger) {
-  gInterpreter->GenerateDictionary("std::vector<std::vector<float>>", "vector");
+void unfold(string trigger="Photon5") {
+  
+  bool dodraw = false;
   
   unfolder uf(trigger);
+  uf.set_dodraw(dodraw);
   uf.fill_matrix();
-  uf.end();
+  if (!dodraw) {
+    uf.unfold();
+    uf.end();
+  }
 }

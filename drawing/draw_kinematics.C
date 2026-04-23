@@ -2,6 +2,18 @@
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 drawer d;
 
+TF1 * func = new TF1("func","expo",12,35);
+double piecewise_func(double *x, double *par) {
+  if (x[0] >= 10 && x[0] < 11) {
+    return 1.5627383;
+  }
+  else if (x[0] >= 11 && x[0] < 12) {
+    return 1.0147688;
+  }
+  else return func->Eval(x[0]);
+}
+
+
 void drawData(TFile * f, string histname, string label) {
   TH1D * hist = (TH1D*)f->Get(histname.c_str());
   TLegend * l = new TLegend(.7,.45,.85,.7);
@@ -20,7 +32,7 @@ void drawData(TFile * f, string histname, string label) {
 }
     
 void draw_kinematics() {
-  drawer d;
+  drawer d("herwig");
   gStyle->SetOptStat(0);
 
   TCanvas * cpt = new TCanvas("cpt","",700,700);
@@ -77,6 +89,26 @@ void draw_kinematics() {
   hdivide->GetYaxis()->SetRangeUser(0,2);
   hdivide->Draw("p");
   d.drawLine(7,1,40,1);
+  
+  hdivide->Fit(func,"RQ");
+  
+  TF1 * pfunc = new TF1("pfunc", piecewise_func, 10, 35, 0);
+  pfunc->SetNpx(10000);
+  TFile * ftemp = TFile::Open("/home/samson72/sphnx/gammajet/hists/reweighting.root","RECREATE");
+  hdivide->Write();
+  pfunc->Write();
+  TH1D * hvzd = d.get("hvz",0);
+  TH1D * hvzp = d.get("hvz",1);
+  hvzd->Scale(1.0/hvzd->Integral());
+  hvzp->Scale(1.0/hvzp->Integral());
+  TH1D * hvzr = (TH1D*)hvzd->Clone("hvz_reweight");
+  hvzr->Reset("ICES");
+  hvzr->Divide(hvzd,hvzp);
+  hvzd->Write();
+  hvzp->Write();
+  hvzr->Write();
+  
+  ftemp->Close();
 
   cpt->SaveAs("/home/samson72/sphnx/gammajet/pdfs/cluster_pt.pdf");
   

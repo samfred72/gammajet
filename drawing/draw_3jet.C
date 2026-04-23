@@ -2,8 +2,8 @@
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 void draw_3jet() {
   drawer d;
-  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/histsData.root");
-  TFile * fp = TFile::Open("/home/samson72/sphnx/gammajet/hists/histsPhoton20.root");
+  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/hists_Data.root");
+  TFile * fp = TFile::Open("/home/samson72/sphnx/gammajet/hists/hists_pythia_Photon20.root");
   gStyle->SetOptStat(0);
   int ir = 1;
   TH2D * hd = (TH2D*)f->Get(Form("h3jetpt%i",ir));
@@ -11,7 +11,7 @@ void draw_3jet() {
   float drawx = .2;
   float drawy = .85;
   float fontsize = 20; 
-  
+
   TH1D * hfracd = new TH1D("hfracd",";Leading cluster pT;fraction of pairs with 3rd jet",ana::nPtBins,ana::ptBins);
   TH1D * hfracp = new TH1D("hfracp",";Leading cluster pT;fraction of pairs with 3rd jet",ana::nPtBins,ana::ptBins);
 

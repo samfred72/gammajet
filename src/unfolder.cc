@@ -2,31 +2,8 @@
 using namespace std;
 
 unfolder::~unfolder() {}
-pho_object unfolder::getmaxpho(vector<pho_object> phos) {
-  pho_object max;
-  for (int i = 0; i < phos.size(); i++) {
-    pho_object pho = phos.at(i);
-    if (pho.pt > max.pt) {
-      max = pho;
-    }
-  }
-  return max;
-}
-jet_object unfolder::getmaxjet(vector<jet_object> jets, pho_object pho, int ir) {
-  jet_object max;
-  for (int i = 0; i < jets.size(); i++) {
-    jet_object jet = jets.at(i);
-    float dr = pho.deltaR(jet);
-    float dphi = jet.deltaPhi(pho);
-    if (dr < ana::drcut[ir]) continue;
-    if (jet.pt > max.pt) {
-      max = jet;
-    }
-  }
-  return max;
-}
 
-bool unfolder::check_pair(jet_object jet, vector<jet_object> jets, int ir, pho_object pho) {
+bool unfolder::check_pair(jet_object jet, int ir, pho_object pho, bool isreco) {
   float dphi = jet.deltaPhi(pho);
   int iabcd = ana::findabcdBin(pho.iso4, pho.bdt, 0);
   
@@ -34,13 +11,20 @@ bool unfolder::check_pair(jet_object jet, vector<jet_object> jets, int ir, pho_o
   if (abs(pho.eta) > ana::etacut) return false;
   if (abs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
   if (dphi < ana::oppcut) return false;
-  if (pho.pt < 0) return false;
   
   return true;
 }
 
-bool unfolder::check_match(pho_object pr, pho_object pt, jet_object jr, jet_object jt) {
-  if (pr.deltaR(pt) < 0.1 && jr.deltaR(jt) < 0.1) return true;
+bool unfolder::check_match(pho_object p1, pho_object p2, jet_object j1, jet_object j2) {
+  if (p1.deltaR(p2) < 0.1 && j1.deltaR(j2) < 0.3) return true;
+  else return false;
+}
+bool unfolder::check_match(pho_object p1, pho_object p2) {
+  if (p1.deltaR(p2) < 0.1) return true;
+  else return false;
+}
+bool unfolder::check_match(jet_object j1, jet_object j2) {
+  if (j1.deltaR(j2) < 0.3) return true;
   else return false;
 }
 void unfolder::fill_matrix() {
@@ -48,241 +32,456 @@ void unfolder::fill_matrix() {
   nentries = t->GetEntriesFast();
   cout << "running..." << endl;
 
+  TCanvas * c = new TCanvas("c","",500,1000);
+  gStyle->SetOptStat(0);
+  if (dodraw) c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/event_displays_%s.pdf[",trigger.c_str()));
+  int ndraw = 0;
+
   for (Long64_t e = 0; e < nentries; e++) {
     t->GetEntry(e);
+    bool use_half = rand.Integer(2) % 2;
     if (e % 1000 == 0)
       std::cout << "entry " << e << "/" << nentries
         << " (" << (float)e/nentries*100. << "%)\t\r" << std::flush;
-
-    // -----------------------
-    // Build clusters & jets
-    // -----------------------
-    auto clusters = make_clusters(*cluster_pt, *cluster_e, *cluster_eta, *cluster_phi,
-        *cluster_showershape, *cluster_time, *cluster_bdt_scores);
-    auto truth_clusters = make_clusters(*truth_cluster_pt, *truth_cluster_e,
-        *truth_cluster_eta, *truth_cluster_phi);
-
-    vector<vector<jet_object>> jets(ana::nJetR);
-    vector<vector<jet_object>> truth_jets(ana::nJetR);
-
-    for (int i = 0; i < ana::nJetR; i++) {
-      jets[i] = make_jets(jet_pt_smear->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i),
-          jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i));
-
-      truth_jets[i] = make_jets(truth_jet_pt->at(i), truth_jet_e->at(i),
-          truth_jet_eta->at(i), truth_jet_phi->at(i));
-    }
+    
+    if (fabs(vz) > ana::vzcut) continue;
 
     // -----------------------
     // Event selection
     // -----------------------
-    bool isphoton = (trigger == "Photon5" || trigger == "Photon10" || trigger == "Photon20");
 
-    float truth_max_pho_pt = findmaxpt(truth_clusters);
-    bool isc = (isphoton ? (truth_max_pho_pt > threshmap[-1][trigger] &&
-          truth_max_pho_pt < threshmap_high[-1][trigger])
-        : true);
-    count_isc += isc;
-
-    vector<bool> isj(ana::nJetR, true);
-    for (int i = 0; i < ana::nJetR; i++) {
-      float truth_max_jet_pt = findmaxpt(truth_jets[i]);
-      isj[i] = (isphoton ? true : (truth_max_jet_pt > threshmap[i][trigger] &&
-            truth_max_jet_pt < threshmap_high[i][trigger]));
-      count_isj[i] += isj[i];
+    vector<bool> keepMC = check_keep_MC(truth_cluster_pt, truth_jet_pt, trigger);
+    bool keep = 0;
+    for (int i = 0; i < ana::nJetR + 1; i++) {
+      keep |= keepMC.at(i);
     }
+    if (!keep) continue;
 
     // -----------------------
     // Leading photon & isolation
     // -----------------------
-    pho_object maxpho = getmaxpho(clusters);
-    pho_object maxpho_truth = getmaxpho(truth_clusters);
+    pho_object maxpho = pho_object(
+        cluster_pt, 
+        cluster_e, 
+        cluster_eta, 
+        cluster_phi, 
+        cluster_showershape[8],
+        cluster_showershape[9],
+        cluster_time, 
+        cluster_bdt_scores[9], 
+        pho_object::get_showershape(cluster_showershape, cluster_pt)
+    ); 
+    pho_object maxpho_truth = pho_object(
+        truth_cluster_pt, 
+        truth_cluster_e, 
+        truth_cluster_eta, 
+        truth_cluster_phi, 
+        //cluster_showershape[8], // TEMPORARY!!!!!
+        //cluster_showershape[9],
+        truth_cluster_iso3,
+        truth_cluster_iso4,
+        0, // no time object for truth 
+        0.99, // truth photon is guaranteed a photon
+        2 // truth photon is guaranteed a photon
+    ); 
 
-    float maxpho_iso4 = 0;
-    // add cluster contribution
-    for (const auto& c : truth_clusters) {
-      float dr = maxpho_truth.deltaR(c);
-      if (dr > 0.01 && dr < 0.4) maxpho_iso4 += c.pt;
-    }
-    // add jet contribution (only for R=1 jets here)
-    for (const auto& j : truth_jets[1]) {
-      float dr = maxpho_truth.deltaR(j);
-      if (dr > 0.01 && dr < 0.4) maxpho_iso4 += j.pt;
-    }
-    maxpho_truth.iso4 = maxpho_iso4;
-    maxpho_truth.bdt = 0.99;
 
-    // -----------------------
-    // Leading jets
-    // -----------------------
     vector<jet_object> maxjet(ana::nJetR);
     vector<jet_object> maxjet_truth(ana::nJetR);
     vector<bool> ispaired(ana::nJetR, false);
     vector<bool> ispaired_truth(ana::nJetR, false);
-    bool anypaired = false, anypaired_truth = false, isanymatch = false;
 
     for (int ir = 0; ir < ana::nJetR; ir++) {
-      maxjet[ir] = getmaxjet(jets[ir], maxpho, ir);
-      maxjet_truth[ir] = getmaxjet(truth_jets[ir], maxpho_truth, ir);
+    
+    
+      maxjet[ir] = jet_object(
+          jet_pt_smear[ir], 
+          jet_e[ir], 
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+      );
+      maxjet_truth[ir] = jet_object(
+          truth_jet_pt[ir], 
+          truth_jet_e[ir], 
+          truth_jet_eta[ir], 
+          truth_jet_phi[ir], 
+          0, 0, 0, 0);
+      
+      hphodr[ir]->Fill(maxpho.deltaR(maxpho_truth));
+      hjetdr[ir]->Fill(maxjet[ir].deltaR(maxjet_truth[ir]));
+      
+      hphopurden[ir]->Fill(maxpho.pt);
+      hphoeffden[ir]->Fill(maxpho_truth.pt);
+      if (check_match(maxpho, maxpho_truth)) {
+        hphopurnum[ir]->Fill(maxpho.pt);
+        hphoeffnum[ir]->Fill(maxpho_truth.pt);
+      }
+      hjetpurden[ir]->Fill(maxjet[ir].pt);
+      hjeteffden[ir]->Fill(maxjet_truth[ir].pt);
+      if (check_match(maxjet[ir], maxjet_truth[ir])) {
+        hjetpurnum[ir]->Fill(maxjet[ir].pt);
+        hjeteffnum[ir]->Fill(maxjet_truth[ir].pt);
+      }
+      
+      float xj = maxjet[ir].pt/maxpho.pt;
+      float xj_truth = maxjet_truth[ir].pt/maxpho_truth.pt;
+      int bin = ana::findUnfoldBin(xj,maxpho.pt);
+      int bin_truth = ana::findUnfoldBin(xj_truth,maxpho_truth.pt);
+
 
       // -----------------------
       // Pairing
       // -----------------------
-      if (maxpho.pt > ana::cluster_pt_cut && maxjet[ir].pt > ana::jet_pt_cut[ir] && isc && isj[ir]) {
-        ispaired[ir] = check_pair(maxjet[ir], jets[ir], ir, maxpho);
-        anypaired |= ispaired[ir];
+      if (maxpho.pt > ana::cluster_pt_cut && maxjet[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        ispaired[ir] = check_pair(maxjet[ir], ir, maxpho,1);
       }
-      if (maxpho_truth.pt > ana::cluster_pt_cut && maxjet_truth[ir].pt > ana::jet_pt_cut[ir] && isc && isj[ir]) {
-        ispaired_truth[ir] = check_pair(maxjet_truth[ir], truth_jets[ir], ir, maxpho_truth);
-        anypaired_truth |= ispaired_truth[ir];
+      if (maxpho_truth.pt > ana::cluster_pt_cut && maxjet_truth[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        ispaired_truth[ir] = check_pair(maxjet_truth[ir], ir, maxpho_truth,1);
       }
 
       // -----------------------
       // Fill response matrix
       // -----------------------
-      if (ispaired[ir] && !ispaired_truth[ir])
-        jet_response[ir].Fake(maxjet[ir].pt);
-      else if (!ispaired[ir] && ispaired_truth[ir])
-        jet_response[ir].Miss(maxjet_truth[ir].pt);
-      else if (ispaired[ir] && ispaired_truth[ir]) {
-        bool ismatch = check_match(maxpho, maxpho_truth, maxjet[ir], maxjet_truth[ir]);
-        isanymatch |= ismatch;
-        if (ismatch)
-          jet_response[ir].Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
+      //if (bin < 0 && ispaired[ir]) cout << "ISSUE RECO!!! xj: " << xj << " pt: " << maxpho.pt << endl;
+      //if (bin_truth < 0 && ispaired_truth[ir]) cout << "ISSUE TRUTH!!! xj: " << xj_truth << " pt: " << maxpho_truth.pt << endl;
+      bool ismatch = false;
+      if (ispaired[ir] && !ispaired_truth[ir] && bin >= 0) {
+        jet_response[ir]->Fake(maxjet[ir].pt);
+        pho_response[ir]->Fake(maxpho.pt);
+        jet_response2D[ir]->Fake(bin);
+        hphomissfake[ir]->Fill(maxpho.pt,100);
+        hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
+        hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+        if (use_half) {
+          jet_response_half[ir]->Fake(maxjet[ir].pt);
+          pho_response_half[ir]->Fake(maxpho.pt);
+          jet_response_half2D[ir]->Fake(bin);
+        }
+      }
+      else if (!ispaired[ir] && ispaired_truth[ir] && bin_truth >= 0) {
+        jet_response[ir]->Miss(maxjet_truth[ir].pt);
+        pho_response[ir]->Miss(maxpho_truth.pt);
+        jet_response2D[ir]->Miss(bin_truth);
+        hphomissfake[ir]->Fill(100,maxpho_truth.pt);
+        hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
+        hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
+        if (use_half) {
+          jet_response_half[ir]->Miss(maxjet_truth[ir].pt);
+          pho_response_half[ir]->Miss(maxpho_truth.pt);
+          jet_response_half2D[ir]->Miss(bin_truth);
+        }
+      }
+      else if (ispaired[ir] && ispaired_truth[ir] && bin >= 0 && bin_truth >= 0) {
+        ismatch = check_match(maxpho, maxpho_truth, maxjet[ir], maxjet_truth[ir]);
+        if (ismatch) {
+          jet_response[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
+          pho_response[ir]->Fill(maxpho.pt, maxpho_truth.pt);
+          jet_response2D[ir]->Fill(bin, bin_truth);
+        
+          hphomissfake[ir]->Fill(maxpho.pt,maxpho_truth.pt);
+          hjetmissfake[ir]->Fill(maxjet[ir].pt,maxjet_truth[ir].pt);
+          hpairmissfake[ir]->Fill(bin,bin_truth);
+          
+          if (use_half) {
+            jet_response_half[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
+            pho_response_half[ir]->Fill(maxpho.pt, maxpho_truth.pt);
+            jet_response_half2D[ir]->Fill(bin, bin_truth); 
+          }
+        }
         else {
-          jet_response[ir].Miss(maxjet_truth[ir].pt);
-          jet_response[ir].Fake(maxjet[ir].pt);
+          jet_response[ir]->Miss(maxjet_truth[ir].pt);
+          jet_response[ir]->Fake(maxjet[ir].pt);
+          pho_response[ir]->Miss(maxpho_truth.pt);
+          pho_response[ir]->Fake(maxpho.pt);
+          jet_response2D[ir]->Miss(bin_truth);
+          jet_response2D[ir]->Fake(bin);
+        
+          hphomissfake[ir]->Fill(maxpho.pt,100);
+          hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
+          hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+          hphomissfake[ir]->Fill(100,maxpho_truth.pt);
+          hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
+          hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
+          
+          
+          if (use_half) {
+            jet_response_half[ir]->Miss(maxjet_truth[ir].pt);
+            jet_response_half[ir]->Fake(maxjet[ir].pt);
+            pho_response_half[ir]->Miss(maxpho_truth.pt);
+            pho_response_half[ir]->Fake(maxpho.pt);
+            jet_response_half2D[ir]->Miss(bin_truth);
+            jet_response_half2D[ir]->Fake(bin);
+          }
         }
       }
 
-      if (ispaired[ir]) hjetpt[ir]->Fill(maxjet[ir].pt);
-      if (ispaired_truth[ir]) htruthjetpt[ir]->Fill(maxjet_truth[ir].pt);
-    }
+      // ------------------
+      // Fill Histograms
+      // ------------------
+     
+      int ipt = ana::findPtBin(maxpho.pt); 
+      if (ispaired[ir]) {
+        hpairpurden[ir]->Fill(bin);
+        
+        hrecojetpt[ir]->Fill(maxjet[ir].pt);
+        hrecophopt[ir]->Fill(maxpho.pt);
+        hrecoxj[ir]->Fill(bin);
+        if (!use_half) {
+          hrecojetpt_half[ir]->Fill(maxjet[ir].pt);
+          hrecophopt_half[ir]->Fill(maxpho.pt);
+          hrecoxj_half[ir]->Fill(bin);
+        }
+      }
 
-    // -----------------------
-    // Photon histograms & response
-    // -----------------------
-    if (anypaired) hclusterpt->Fill(maxpho.pt);
-    if (anypaired_truth) htruthclusterpt->Fill(maxpho_truth.pt);
+      if (ispaired_truth[ir]) {
+        hpaireffden[ir]->Fill(bin_truth);
 
-    if (anypaired && !isanymatch)
-      pho_response.Fake(maxpho.pt);
-    else if (!anypaired && anypaired_truth)
-      pho_response.Miss(maxpho_truth.pt);
-    else if (anypaired && anypaired_truth) {
-      if (isanymatch)
-        pho_response.Fill(maxpho.pt, maxpho_truth.pt);
-      else {
-        pho_response.Miss(maxpho_truth.pt);
-        pho_response.Fake(maxpho.pt);
+        htruthjetpt[ir]->Fill(maxjet_truth[ir].pt);
+        htruthphopt[ir]->Fill(maxpho_truth.pt);
+        htruthxj[ir]->Fill(bin_truth);
+        if (!use_half) {
+          htruthjetpt_half[ir]->Fill(maxjet_truth[ir].pt);
+          htruthphopt_half[ir]->Fill(maxpho_truth.pt);
+          htruthxj_half[ir]->Fill(bin_truth);
+        }
+      }
+
+      if (ismatch) {
+        hpairpurnum[ir]->Fill(bin);
+        hpaireffnum[ir]->Fill(bin_truth);
+      }
+
+
+      // Drawing event displays
+      if (dodraw && ndraw < 100 && ir == 1 && (!ispaired_truth[ir] && ispaired[ir])) {
+        if (!ispaired[ir]) {
+          float dphi = maxjet[ir].deltaPhi(maxpho);
+          int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+          cout << "Event " << ndraw + 1 << " reco failed because: ";
+          if (iabcd != 0) cout << endl << "abcd cut: BDT: " << maxpho.bdt << " ISO: " << maxpho.iso4;
+          if (abs(maxpho.eta) >= ana::etacut) cout << endl << "photon eta: " << abs(maxpho.eta);
+          if (abs(maxjet[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << abs(maxjet[ir].eta);
+          if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
+          if (maxpho.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho.pt;
+          if (maxjet[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet[ir].pt;
+          cout << endl;
+        }
+
+        if (!ispaired_truth[ir]) {
+          float dphi = maxjet_truth[ir].deltaPhi(maxpho_truth);
+          int iabcd = ana::findabcdBin(maxpho_truth.iso4, maxpho_truth.bdt, 0);
+          cout << "Event " << ndraw + 1 << " truth failed because: ";
+          if (iabcd != 0) cout << endl << "abcd cut: BDT: " << maxpho_truth.bdt << " ISO: " << maxpho_truth.iso4;
+          if (abs(maxpho_truth.eta) >= ana::etacut) cout << endl << "photon eta: " << abs(maxpho_truth.eta);
+          if (abs(maxjet_truth[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << abs(maxjet_truth[ir].eta);
+          if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
+          if (maxpho_truth.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho_truth.pt;
+          if (maxjet_truth[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet_truth[ir].pt;
+          cout << endl;
+        }
+        
+
+        TH2D * h = new TH2D("heventdisplay",";eta;phi",100,-1.5,1.5,100,-M_PI,M_PI);
+        h->Draw();
+
+        TMarker * star = new TMarker(maxpho.eta, maxpho.phi, 29);
+        star->SetMarkerColor(kRed);
+        star->SetMarkerSize(2);
+        TMarker * star_truth = new TMarker(maxpho_truth.eta, maxpho_truth.phi, 29);
+        star_truth->SetMarkerColor(kBlack);
+        star_truth->SetMarkerSize(3);
+        
+        TMarker * circle = new TMarker(maxjet[ir].eta, maxjet[ir].phi, 20);
+        circle->SetMarkerColorAlpha(kRed,0.5);
+        circle->SetMarkerSize(15);
+        TMarker * circle_truth = new TMarker(maxjet_truth[ir].eta, maxjet_truth[ir].phi, 20);
+        circle_truth->SetMarkerColorAlpha(kBlack, 0.5);
+        circle_truth->SetMarkerSize(15);
+        
+        // For the legend
+        TMarker * dummy_truth = new TMarker(maxpho_truth.eta, maxpho_truth.phi, 29);
+        dummy_truth->SetMarkerColor(kBlack);
+        dummy_truth->SetMarkerSize(2);
+        TMarker * dummy_circle = new TMarker(maxpho_truth.eta, maxpho_truth.phi, 20);
+        dummy_circle->SetMarkerColorAlpha(kRed,0.5);
+        dummy_circle->SetMarkerSize(2);
+        TMarker * dummy_circle_truth = new TMarker(maxpho_truth.eta, maxpho_truth.phi, 20);
+        dummy_circle_truth->SetMarkerColorAlpha(kBlack,0.5);
+        dummy_circle_truth->SetMarkerSize(2);
+
+        if (maxpho_truth.pt > 0) star_truth->Draw();
+        if (maxpho.pt > 0) star->Draw();
+        if (maxjet[ir].pt > 0) circle->Draw();
+        if (maxjet_truth[ir].pt > 0) circle_truth->Draw();
+
+        TLegend * l = new TLegend(0,0.8,.3,1);
+        l->AddEntry(star, "Reco Cluster");
+        l->AddEntry(dummy_truth, "Truth Cluster");
+        l->AddEntry(dummy_circle, "Reco Jet");
+        l->AddEntry(dummy_circle_truth, "Truth Jet");
+        l->Draw();
+
+        TLatex latex;
+        latex.SetNDC();
+       
+        if (!ispaired[ir]) latex.DrawLatex(0.3,0.95,"Reco Failed");
+        if (!ispaired_truth[ir]) latex.DrawLatex(0.3,0.9,"Truth Failed");
+
+        ndraw++;
+        c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/event_displays_%s.pdf",trigger.c_str()));
+        delete h;
+        delete l;
+        c->Clear();
+
+        if (ndraw == 100) c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/event_displays_%s.pdf]",trigger.c_str()));
       }
     }
   }
+}
 
+void unfolder::unfold() {
   // -----------------------
   // Unfold
   // -----------------------
-  RooUnfoldBayes pho_unfold(&pho_response, hclusterpt, 4);
-  hclusterreco = (TH1D*)pho_unfold.Hreco();
-  hclusterreco->SetName("hclusterreco");
 
   for (int ir = 0; ir < ana::nJetR; ir++) {
-    RooUnfoldBayes jet_unfold(&jet_response[ir], hjetpt[ir], 4);
-    hjetreco[ir] = (TH1D*)jet_unfold.Hreco();
-    hjetreco[ir]->SetName(Form("hjetreco%i", ir));
+    RooUnfoldBayes jet_unfold(jet_response[ir], hrecojetpt[ir], niterate, 0, 1);
+    hunfoldjetpt[ir] = (TH1D*)jet_unfold.Hreco();
+    hunfoldjetpt[ir]->SetName(Form("hunfoldjetpt%i", ir));
+    hjetresponse[ir] = (TH2D*)jet_response[ir]->Hresponse();
+    hjetresponse[ir]->SetName(Form("hjetresponse%i", ir));
+  
+    RooUnfoldBayes pho_unfold(pho_response[ir], hrecophopt[ir], niterate, 0, 1);
+    hunfoldphopt[ir] = (TH1D*)pho_unfold.Hreco();
+    hunfoldphopt[ir]->SetName(Form("hunfoldphopt%i",ir));
+    hphoresponse[ir] = (TH2D*)pho_response[ir]->Hresponse();
+    hphoresponse[ir]->SetName(Form("hphoresponse%i",ir));
+    
+    RooUnfoldBayes jet_unfold_half(jet_response_half[ir], hrecojetpt_half[ir], niterate, 0, 1);
+    hunfoldjetpt_half[ir] = (TH1D*)jet_unfold_half.Hreco();
+    hunfoldjetpt_half[ir]->SetName(Form("hunfoldjetpt_half%i", ir));
+    hjetresponse_half[ir] = (TH2D*)jet_response_half[ir]->Hresponse();
+    hjetresponse_half[ir]->SetName(Form("hjetresponse_half%i", ir));
+  
+    RooUnfoldBayes pho_unfold_half(pho_response_half[ir], hrecophopt_half[ir], niterate, 0, 1);
+    hunfoldphopt_half[ir] = (TH1D*)pho_unfold_half.Hreco();
+    hunfoldphopt_half[ir]->SetName(Form("hunfoldphopt_half%i",ir));
+    hphoresponse_half[ir] = (TH2D*)pho_response_half[ir]->Hresponse();
+    hphoresponse_half[ir]->SetName(Form("hphoresponse_half%i",ir));
+    
+    RooUnfoldBayes jet_unfold2D(jet_response2D[ir], hrecoxj[ir], niterate, 0, 1);
+    hunfoldxj[ir] = (TH1D*)jet_unfold2D.Hreco();
+    hunfoldxj[ir]->SetName(Form("hunfoldxj%i",  ir));
+    hxjresponse[ir] = (TH2D*)jet_response2D[ir]->Hresponse();
+    hxjresponse[ir]->SetName(Form("hxjresponse%i", ir));
+
+    RooUnfoldBayes jet_unfold_half2D(jet_response_half2D[ir], hrecoxj_half[ir], niterate, 0, 1);
+    hunfoldxj_half[ir] = (TH1D*)jet_unfold_half2D.Hreco();
+    hunfoldxj_half[ir]->SetName(Form("hunfoldxj_half%i", ir));
+    hxjresponse_half[ir] = (TH2D*)jet_response_half2D[ir]->Hresponse();
+    hxjresponse_half[ir]->SetName(Form("hxjresponse_half%i", ir));
+  }
+}
+
+void unfolder::savehists(TH1D * h[], int n) {
+  for (int i = 0; i < n; i++) {
+    h[i]->Write();
+  }
+}
+void unfolder::savehists(TH2D * h[], int n) {
+  for (int i = 0; i < n; i++) {
+    h[i]->Write();
+  }
+}
+void unfolder::savehists(RooUnfoldResponse * h[], int n) {
+  for (int i = 0; i < n; i++) {
+    h[i]->Write();
+  }
+}
+void unfolder::savehists(TEfficiency * h[], int n) {
+  for (int i = 0; i < n; i++) {
+    h[i]->Write();
   }
 }
 
 void unfolder::end() {
-  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root",trigger.c_str());
+  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/%s_%s_unfolding.root",trigger.c_str(),sim.c_str());
   cout << "Writing files to " << wfilename << endl;
   TFile::Open(wfilename, "RECREATE");
-  
-  hclusterpt->Write();
-  htruthclusterpt->Write();
-  hclusterreco->Write();
+
+  savehists(hphodr,ana::nJetR);
+  savehists(hjetdr,ana::nJetR);
+
+  savehists(hrecojetpt,ana::nJetR);
+  savehists(htruthjetpt,ana::nJetR);
+  savehists(hunfoldjetpt,ana::nJetR);
+  savehists(hjetresponse,ana::nJetR);
+  savehists(hrecophopt,ana::nJetR);
+  savehists(htruthphopt,ana::nJetR);
+  savehists(hunfoldphopt,ana::nJetR);
+  savehists(hphoresponse,ana::nJetR);
+
+  savehists(hrecojetpt_half,ana::nJetR);
+  savehists(htruthjetpt_half,ana::nJetR);
+  savehists(hunfoldjetpt_half,ana::nJetR);
+  savehists(hjetresponse_half,ana::nJetR);
+  savehists(hrecophopt_half,ana::nJetR);
+  savehists(htruthphopt_half,ana::nJetR);
+  savehists(hunfoldphopt_half,ana::nJetR);
+  savehists(hphoresponse_half,ana::nJetR);
+
+  savehists(hrecoxj,ana::nJetR);
+  savehists(htruthxj,ana::nJetR);
+  savehists(hunfoldxj,ana::nJetR);
+  savehists(hxjresponse,ana::nJetR);
+
+  savehists(hrecoxj_half,ana::nJetR);
+  savehists(htruthxj_half,ana::nJetR);
+  savehists(hunfoldxj_half,ana::nJetR);
+  savehists(hxjresponse_half,ana::nJetR);
+
+  savehists(jet_response2D,ana::nJetR);
+
+  savehists(hphopurden,ana::nJetR);
+  savehists(hphopurnum,ana::nJetR);
+  savehists(hphoeffden,ana::nJetR);
+  savehists(hphoeffnum,ana::nJetR);
+  savehists(hjetpurden,ana::nJetR);
+  savehists(hjetpurnum,ana::nJetR);
+  savehists(hjeteffden,ana::nJetR);
+  savehists(hjeteffnum,ana::nJetR);
+  savehists(hpairpurden,ana::nJetR);
+  savehists(hpairpurnum,ana::nJetR);
+  savehists(hpaireffden,ana::nJetR);
+  savehists(hpaireffnum,ana::nJetR);
+
   for (int ir = 0; ir < ana::nJetR; ir++) {
-    hjetpt[ir]->Write();
-    htruthjetpt[ir]->Write();
-    hjetreco[ir]->Write();
+    hphoeff[ir] = new TEfficiency(*hphoeffnum[ir], *hphoeffden[ir]);
+    hphopur[ir] = new TEfficiency(*hphopurnum[ir], *hphopurden[ir]);
+    hjeteff[ir] = new TEfficiency(*hjeteffnum[ir], *hjeteffden[ir]);
+    hjetpur[ir] = new TEfficiency(*hjetpurnum[ir], *hjetpurden[ir]);
+    hpaireff[ir] = new TEfficiency(*hpaireffnum[ir], *hpaireffden[ir]);
+    hpairpur[ir] = new TEfficiency(*hpairpurnum[ir], *hpairpurden[ir]);
+
+    hphoeff [ir]->SetName(Form("hphoeff%i",ir));
+    hphopur [ir]->SetName(Form("hphopur%i",ir));
+    hjeteff [ir]->SetName(Form("hjeteff%i",ir));
+    hjetpur [ir]->SetName(Form("hjetpur%i",ir));
+    hpaireff[ir]->SetName(Form("hpaireff%i",ir));
+    hpairpur[ir]->SetName(Form("hpairpur%i",ir));
   }
+  savehists(hphoeff,ana::nJetR);
+  savehists(hphopur,ana::nJetR);
+  savehists(hjeteff,ana::nJetR);
+  savehists(hjetpur,ana::nJetR);
+  savehists(hpaireff,ana::nJetR);
+  savehists(hpairpur,ana::nJetR);
+
+  savehists(hphomissfake,ana::nJetR);
+  savehists(hjetmissfake,ana::nJetR);
+  savehists(hpairmissfake,ana::nJetR);
 }
-
-void unfolder::treesetup() {
-  cluster_pt = 0;
-  cluster_e = 0;
-  cluster_eta = 0;
-  cluster_phi = 0;
-  cluster_time = 0;
-  cluster_bdt_scores = 0;
-  cluster_showershape = 0;
-
-  truth_cluster_pt = 0;
-  truth_cluster_e = 0;
-  truth_cluster_eta = 0;
-  truth_cluster_phi = 0;
-
-  jet_pt = 0;
-  jet_pt_calib = 0;
-  jet_pt_smear = 0;
-  jet_e = 0;
-  jet_eta = 0;
-  jet_phi = 0;
-  jet_emfrac = 0;
-  jet_ihfrac = 0;
-  jet_ohfrac = 0;
-  jet_time = 0;  
-
-  truth_jet_pt = 0;
-  truth_jet_e = 0;
-  truth_jet_eta = 0;
-  truth_jet_phi = 0;
-
-  // Set branch addresses and branch pointers
-  if (!t) return;
-
-  t->SetBranchAddress("RunNumber", &RunNumber, &b_RunNumber);
-  t->SetBranchAddress("vz", &vz, &b_vz);
-  t->SetBranchAddress("ScaledTriggerBit", ScaledTriggerBit, &b_ScaledTriggerBit);
-  t->SetBranchAddress("LiveTriggerBit", LiveTriggerBit, &b_LiveTriggerBit);
-  t->SetBranchAddress("Scaledowns", Scaledowns, &b_Scaledowns);
-  t->SetBranchAddress("mbd_nhits_south", &mbd_nhits_south, &b_mbd_nhits_south);
-  t->SetBranchAddress("mbd_nhits_north", &mbd_nhits_north, &b_mbd_nhits_north);
-  t->SetBranchAddress("mbd_time_south", &mbd_time_south, &b_mbd_time_south);
-  t->SetBranchAddress("mbd_time_north", &mbd_time_north, &b_mbd_time_north);
-
-  t->SetBranchAddress("nClusters", &nClusters, &b_nClusters);
-  t->SetBranchAddress("cluster_pt" , &cluster_pt , &b_cluster_pt );
-  t->SetBranchAddress("cluster_e"  , &cluster_e  , &b_cluster_e  );
-  t->SetBranchAddress("cluster_eta", &cluster_eta, &b_cluster_eta);
-  t->SetBranchAddress("cluster_phi", &cluster_phi, &b_cluster_phi);
-  t->SetBranchAddress("cluster_showershape", &cluster_showershape, &b_cluster_showershape);
-  t->SetBranchAddress("cluster_time", &cluster_time, &b_cluster_time);
-  t->SetBranchAddress("cluster_bdt_scores", &cluster_bdt_scores, &b_cluster_bdt_scores);
-
-  t->SetBranchAddress("nJets", nJets, &b_nJets);
-  t->SetBranchAddress("jet_pt" , &jet_pt , &b_jet_pt );
-  t->SetBranchAddress("jet_pt_calib" , &jet_pt_calib , &b_jet_pt_calib );
-  t->SetBranchAddress("jet_e"  , &jet_e  , &b_jet_e  );
-  t->SetBranchAddress("jet_eta", &jet_eta, &b_jet_eta);
-  t->SetBranchAddress("jet_phi", &jet_phi, &b_jet_phi);
-  t->SetBranchAddress("jet_emfrac", &jet_emfrac, &b_jet_emfrac);
-  t->SetBranchAddress("jet_ihfrac", &jet_ihfrac, &b_jet_ihfrac);
-  t->SetBranchAddress("jet_ohfrac", &jet_ohfrac, &b_jet_ohfrac);
-  t->SetBranchAddress("jet_time", &jet_time, &b_jet_time);
-
-  t->SetBranchAddress("jet_pt_smear" , &jet_pt_smear , &b_jet_pt_smear );
-  t->SetBranchAddress("nTruthClusters", &nTruthClusters, &b_nTruthClusters);
-  t->SetBranchAddress("truth_cluster_pt" , &truth_cluster_pt , &b_truth_cluster_pt );
-  t->SetBranchAddress("truth_cluster_e"  , &truth_cluster_e  , &b_truth_cluster_e  );
-  t->SetBranchAddress("truth_cluster_eta", &truth_cluster_eta, &b_truth_cluster_eta);
-  t->SetBranchAddress("truth_cluster_phi", &truth_cluster_phi, &b_truth_cluster_phi);
-
-  t->SetBranchAddress("nTruthJets", nTruthJets, &b_nTruthJets);
-  t->SetBranchAddress("truth_jet_pt" , &truth_jet_pt , &b_truth_jet_pt );
-  t->SetBranchAddress("truth_jet_e"  , &truth_jet_e  , &b_truth_jet_e  );
-  t->SetBranchAddress("truth_jet_eta", &truth_jet_eta, &b_truth_jet_eta);
-  t->SetBranchAddress("truth_jet_phi", &truth_jet_phi, &b_truth_jet_phi);
-
-}
-

@@ -118,32 +118,64 @@ TH2D * drawer::combineMC2d(const char * histname, bool isphoton) {
   }
   return thehist;
 }
-TH1D * drawer::get(const char * histname, int type) {
-  if (type == 0) {
-    return (TH1D*)dfiles[0]->Get(histname);
-  }
-  else if (type == 1) {
-    return combineMC(histname,1);
-  }
-  else if (type == 2) {
-    return combineMC(histname,0);
+TH1D * drawer::get(const char * histname, int type, int ihist) {
+  if (ihist == -1) {
+    if (type == 0) {
+      return (TH1D*)dfiles[0]->Get(histname);
+    }
+    else if (type == 1) {
+      return combineMC(histname,1);
+    }
+    else if (type == 2) {
+      return combineMC(histname,0);
+    }
+    else {
+      return nullptr;
+    }
   }
   else {
-    return nullptr;
+    if (type == 0) {
+      return (TH1D*)dfiles[0]->Get(histname);
+    }
+    else if (type == 1) {
+      return (TH1D*)pfiles[ihist]->Get(histname);
+    }
+    else if (type == 2) {
+      return (TH1D*)dfiles[ihist]->Get(histname);
+    }
+    else {
+      return nullptr;
+    }
   }
 }
-TH2D * drawer::get2d(const char * histname, int type) {
-  if (type == 0) {
-    return (TH2D*)dfiles[0]->Get(histname);
-  }
-  else if (type == 1) {
-    return combineMC2d(histname,1);
-  }
-  else if (type == 2) {
-    return combineMC2d(histname,0);
+TH2D * drawer::get2d(const char * histname, int type, int ihist) {
+  if (ihist == -1) {
+    if (type == 0) {
+      return (TH2D*)dfiles[0]->Get(histname);
+    }
+    else if (type == 1) {
+      return combineMC2d(histname,1);
+    }
+    else if (type == 2) {
+      return combineMC2d(histname,0);
+    }
+    else {
+      return nullptr;
+    }
   }
   else {
-    return nullptr;
+    if (type == 0) {
+      return (TH2D*)dfiles[0]->Get(histname);
+    }
+    else if (type == 1) {
+      return (TH2D*)pfiles[ihist]->Get(histname);
+    }
+    else if (type == 2) {
+      return (TH2D*)jfiles[ihist]->Get(histname);
+    }
+    else {
+      return nullptr;
+    }
   }
 }
 
@@ -213,6 +245,7 @@ vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(cons
       for (int k = 0; k < ana::nCalibBins; k++) {
         for (int l = 0; l < ana::nIsoBdtBins; l++) {
           for (int m = 0; m < ana::n3jetBins; m++) {
+            //cout << i << j << k << l << m << endl;
             for (int n = 0; n < 4; n++) {
               if (type) { // It's an MC sample
                 hists[i][j][k][l][m][n] = combineMC(Form("%s_%i_%i_%i_%i_%i_%i",histname,i,j,k,l,m,n),isphoton);
