@@ -3,17 +3,19 @@ using namespace std;
 
 // Doesn't actually loop. Just checks that the found photon and found jet are a correct match for each other.
 // This is where the xJ plot is filled
-bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object pho, int icalib, bool isthirdjet) {
+bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float weight) {
   bool useshowershape = 0;
   float dphi = jet.deltaPhi(pho);
   float jetval = jet.pt;
   float phoval = pho.pt;
   float val = jetval/phoval;
   int ipt = ana::findPtBin(pho.pt);
+  bool issingle = pho.pt > ana::singleptlow && pho.pt < ana::singlepthigh;
   if (icalib == 0) {
     hdeltaphi[ipt][ir]->Fill(dphi);
   }
-  
+ 
+  //cout << pho.eta << " " << jet.eta << " " << dphi << " " << ipt << endl; 
   if (abs(pho.eta) > ana::etacut) return false;
   if (abs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
   if (!isMC && abs(pho.t - jet.t) > ana::tcut) return false;
@@ -21,11 +23,9 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
   if (ipt < 0) return false;
   if (useshowershape && pho.showershape == 0) return false;
   
-  jet_object thirdjet = getthirdjet(pho, jet, jets, ir, icalib);
-  bool hasthirdjet = thirdjet.pt > 0;
-
   // Get the ABCD info and fill
   int iabcd[ana::nIsoBdtBins];
+  bool b_hasthirdjet = hasthirdjet[ir]; 
   for (int iib = 0; iib < ana::nIsoBdtBins; iib++) {
     if (useshowershape) {
       iabcd[iib] = ana::findabcdBin(pho.iso4, pho.showershape, iib);
@@ -34,9 +34,11 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
       iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
     }
     if (iabcd[iib] == -1) continue;
-
-    hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val); 
-    if (!hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd[iib]]->Fill(val);
+    
+    hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val, weight); 
+    
+    if (!b_hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd[iib]]->Fill(val);
+    if (issingle && ir == 1 && icalib == 2 && iib == 0 && iabcd[iib] == 0) hratiosingle->Fill(val);
   }
  
   if (icalib == 1) { 
@@ -48,9 +50,9 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
     hemfrac[ipt][ir]->Fill(jet.emfrac);
     int ixj = ana::findxjBin(val);
     if (ixj >= 0) hjetetaxj[ixj][ir]->Fill(jet.eta);
-    if (iabcd[0] == 0 && hasthirdjet) {
-      h3jetpt[ir]->Fill(pho.pt,thirdjet.pt);
-      h3jetdeltar[ipt][ir]->Fill(thirdjet.deltaR(jet));
+    if (iabcd[0] == 0 && hasthirdjet[ir]) {
+      h3jetpt[ir]->Fill(pho.pt,thirdjet_pt[ir]);
+      h3jetdeltar[ipt][ir]->Fill(thirdjet_dr[ir]);
     }
     if (pho.iso4 < ana::isoBins[0] && pho.pt > 16 && pho.pt < 25) {
       int ibdt = ana::findBdtBin(pho.bdt);
@@ -64,122 +66,243 @@ bool histmaker::loop(jet_object jet, vector<jet_object> jets, int ir, pho_object
 void histmaker::make_hists()
 {
   nentries = t->GetEntriesFast();
-  cout << "running..." << endl;
+  cout << "isMC " << isMC << endl;
   for (Long64_t e = 0; e < nentries; e++) {
     t->GetEntry(e);
-    t0corr = t0map[RunNumber];
+    //t0corr = t0map[RunNumber];
     if(e % 1000==0) std::cout << "entry " << e << "/" << nentries << " (" << (float)e/nentries*100. << "%)" << "\t\r" << std::flush;
+    //if (RunNumber != 51154) continue;
     if (fabs(vz) > ana::vzcut) continue;
     if (!isMC && !ScaledTriggerBit[27] && !ScaledTriggerBit[38]) continue;
-    mbd_t0 = (mbd_time_south + mbd_time_north)/2.0 - t0corr;
-    
-    vector<pho_object> truth_clusters;
-    vector<pho_object> clusters;
-    vector<vector<jet_object>> truth_jets;
-    vector<vector<jet_object>> jets;
-    vector<vector<jet_object>> jets_calib;
-    vector<vector<jet_object>> jets_smear;
-    
-    clusters = make_clusters(*cluster_pt, *cluster_e, *cluster_eta, *cluster_phi, *cluster_showershape, *cluster_time, *cluster_bdt_scores);
-    for (int i = 0; i < ana::nJetR; i++) {
-      jets.push_back(make_jets(jet_pt->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
-      jets_calib.push_back(make_jets(jet_pt_calib->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
-      if (isMC) jets_smear.push_back(make_jets(jet_pt_smear->at(i), jet_e->at(i), jet_eta->at(i), jet_phi->at(i), jet_emfrac->at(i), jet_ihfrac->at(i), jet_ohfrac->at(i), jet_time->at(i)));
-      else jets_smear.push_back(jets_calib.at(i));
-    }
+    mbd_t0 = mbd_time;// - t0corr;
     
     // Fill time histos before any cuts
     if (!isMC) {
       hmbdt->Fill(mbd_t0);
-      for (int i = 0; i < jets.at(1).size(); i++) {
-        hjett->Fill(jets.at(1).at(i).t);
-        hmjt->Fill(mbd_t0,jets.at(1).at(i).t);
-      }
+      if (jet_pt[1] != 0) hjett->Fill(jet_time[1]);
+      if (jet_pt[1] != 0) hmjt->Fill(mbd_t0,jet_time[1]);
+
       for (int i = 0; i < ana::nJetR; i++) {
-        for (int j = 0; j < jet_time->at(i).size(); j++ ){
-          hmtminusjt[i]->Fill(mbd_t0-jets.at(i).at(j).t);
-        }
+        if (jet_pt[i] != 0) hmtminusjt[i]->Fill(mbd_t0-jet_time[i]);
       }
 
-      for (int i = 0; i < clusters.size(); i++) {
-        pho_object cluster = clusters.at(i);
-        hclustert->Fill(cluster.t);
-        hmct->Fill(mbd_t0,cluster.t);
-        hmtminusct->Fill(mbd_t0-cluster.t);
-        for (int j = 0; j < ana::nJetR; j++) {
-          for (int k = 0; k < jets.at(j).size(); k++ ){
-            jet_object jet = jets.at(j).at(k);
-            if (jet.deltaR(cluster) > ana::JetRs[j]) hctminusjt[j]->Fill(cluster.t-jet.t);
-          }
-        }
+      hclustert->Fill(cluster_time);
+      hmct->Fill(mbd_t0,cluster_time);
+      hmtminusct->Fill(mbd_t0-cluster_time);
+      if (jet_pt[1] != 0) hcjt->Fill(cluster_time,jet_time[1]);
+      for (int j = 0; j < ana::nJetR; j++) {
+        if (jet_pt[j] != 0) hctminusjt[j]->Fill(cluster_time-jet_time[j]);
       }
     }
-
     
     // Check if the MC event should be kept
-    bool isc = 1;
-    vector<bool> isj = {1,1,1,1};
-    bool isphoton = (trigger == "Photon5" || trigger == "Photon10" || trigger == "Photon20");
-
+    vector<bool> keepMC(ana::nJetR + 1);
+    for (int i = 0; i < ana::nJetR + 1; i++) {
+      keepMC.at(i) = 1;
+    }
     if (isMC) {
-      // Check the clusters
-      truth_clusters = make_clusters(*truth_cluster_pt, *truth_cluster_e, *truth_cluster_eta, *truth_cluster_phi);
-
-      float truthcpt = findmaxpt(truth_clusters);
-      isc = (isphoton ? (truthcpt > threshmap[-1][trigger] && truthcpt < threshmap_high[-1][trigger]) : 1);
-      count_isc += isc;
-      if (truthcpt > 0) htruthclusterptprecut->Fill(truthcpt);
-      if (isc) htruthclusterpt->Fill(truthcpt);
+      if (truth_cluster_pt > 0) htruthclusterptprecut->Fill(truth_cluster_pt);
+      for (int i = 0; i < ana::nJetR; i++) {  
+        if (truth_jet_pt[i] > 0) htruthjetptprecut[i]->Fill(truth_jet_pt[i]);
+      }
       
-      // Check the jets
-      for (int i = 0; i < ana::nJetR; i++) {
-        truth_jets.push_back(make_jets(truth_jet_pt->at(i), truth_jet_e->at(i), truth_jet_eta->at(i), truth_jet_phi->at(i)));
-        float truthjpt = findmaxpt(truth_jets[i]);
-        isj[i] = (isphoton ? 1 : (truthjpt > threshmap[i][trigger] && truthjpt < threshmap_high[i][trigger]));
-        if (truthjpt > 0) htruthjetptprecut[i]->Fill(truthjpt);
-        if (isj[i] && isc) {
-          htruthjetpt[i]->Fill(truthjpt);
-        }
-        count_isj[i] += isj[i];
+      vector<bool> keepMC = check_keep_MC(truth_cluster_pt, truth_jet_pt, trigger);
+      //for( int i = 0; i < keepMC.size(); i++) {
+      //  cout << keepMC[i] << " ";
+      //}
+      //cout << endl;
+      if (!keepMC.at(keepMC.size()-1)) continue;
+
+      htruthclusterpt->Fill(truth_cluster_pt);
+      for (int i = 0; i < ana::nJetR; i++) {  
+        if (keepMC.at(i)) htruthjetpt[i]->Fill(truth_jet_pt[i]);
       }
     }
 
-    // Store all the jets into nice arrays
-    for (int i = 0; i < nClusters; i++) {
-      for (int j = 0; j < 11; j++) {
-        hbdt[j]->Fill(cluster_bdt_scores->at(j).at(i));
-      }
+    for (int i = 0; i < 11; i++) {
+      hbdt[i]->Fill(cluster_bdt_scores[i]);
     }
     
-    // Now actually find the jet and photon objects
-    pho_object maxpho = getmaxpho(clusters); 
+    pho_object maxpho = pho_object(
+        cluster_pt, 
+        cluster_e,
+        cluster_eta, 
+        cluster_phi, 
+        cluster_showershape[8],
+        cluster_showershape[9],
+        cluster_time, 
+        cluster_bdt_scores[9], 
+        pho_object::get_showershape(cluster_showershape, cluster_pt)
+    ); 
+    float newE = rand->Gaus(cluster_e, cluster_energy_smear_func->Eval(cluster_e));
+    newE *= 1.007;
+    float newPhi = rand->Gaus(cluster_phi, cluster_position_smear_func->Eval(cluster_e));
+    float newEta = rand->Gaus(cluster_eta, cluster_position_smear_func->Eval(cluster_e));
+
+    pho_object maxpho_smear = pho_object(
+        newE/TMath::CosH(newEta),
+        newE,
+        newEta,
+        newPhi,
+        cluster_showershape[8],
+        cluster_showershape[9],
+        cluster_time, 
+        cluster_bdt_scores[9], 
+        pho_object::get_showershape(cluster_showershape, cluster_pt)
+    ); 
+    if (maxpho.pt > ana::cluster_pt_cut) {
+      hclusterphi->Fill(maxpho.phi);
+    }
 
     vector<jet_object> maxjet(ana::nJetR);
     vector<jet_object> maxjet_calib(ana::nJetR);
     vector<jet_object> maxjet_smear(ana::nJetR);
+    vector<jet_object> maxjet_smear_high(ana::nJetR);
+    vector<jet_object> maxjet_smear_low(ana::nJetR);
     int ipt = ana::findPtBin(maxpho.pt);
     if (ipt < 0) continue; 
 
     bool ispaired[ana::nJetR] = { 0 };
     bool anypaired = false;
     for (int ir = 0; ir < ana::nJetR; ir++) {
+      if (!keepMC.at(ir)) continue;
       // one for uncalib, calibrated, and JER smeared`
-      maxjet[ir] = getmaxjet(jets[ir], maxpho,ir);
-      maxjet_calib[ir] = getmaxjet(jets_calib[ir], maxpho,ir);
-      if (isMC) maxjet_smear[ir] = getmaxjet(jets_smear[ir], maxpho,ir);
-      else maxjet_smear[ir] = maxjet_calib[ir];
+      maxjet[ir] = jet_object(
+          jet_pt[ir], 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+      );
+      maxjet_calib[ir] = jet_object(
+          jet_pt_calib[ir], 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+      );
+      if (isMC) {
+        maxjet_smear[ir] = jet_object(
+          jet_pt_smear[ir], 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+        );
+        maxjet_smear_high[ir] = jet_object(
+          jet_pt_smear_high[ir], 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+        );
+        maxjet_smear_low[ir] = jet_object(
+          jet_pt_smear_low[ir], 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+        );
+      }
+      else {
+        maxjet_smear[ir] = maxjet_calib[ir];
+        maxjet_smear_high[ir] = maxjet_calib[ir];
+        maxjet_smear_low[ir] = maxjet_calib[ir];
+      }
+      
+      if (maxjet[ir].pt > ana::jet_pt_cut[ir]) {
+        hdeltar[ir]->Fill(maxjet[ir].deltaR(maxpho));
+        hjetphi[ir]->Fill(maxjet[ir].phi);
+        hdeltaphiprecut[ipt][ir]->Fill(maxjet[ir].deltaPhi(maxpho));
+      }
       // Fill the xJ histograms
-      if (maxjet[ir].pt > ana::jet_pt_cut[ir] && isc && isj[ir]) {
-        ispaired[ir] =    loop(maxjet[ir], jets[ir], ir, maxpho, 0);
+      if (maxjet[ir].pt > ana::jet_pt_cut[ir]) {
+        loop(maxjet[ir],  ir, maxpho, 0);
       }
-      if (maxjet_calib[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
-        loop(maxjet_calib[ir], jets_calib[ir], ir, maxpho, 1);
+      if (maxjet_calib[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        loop(maxjet_calib[ir], ir, maxpho, 1);
       }
-      if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir] && isc && isj[ir]) {
-        loop(maxjet_smear[ir], jets_smear[ir], ir, maxpho, 2);
+      if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        //if (ir == 1) maxpho.print();
+        ispaired[ir] = loop(maxjet_smear[ir], ir, maxpho, 2);
+        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz) : 1.0));
+        loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4);
+      }
+      if (maxjet_smear_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        loop(maxjet_smear_high[ir], ir, maxpho, 5);
+      }
+      if (maxjet_smear_low[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        loop(maxjet_smear_low[ir], ir, maxpho, 6);
       }
       
       anypaired |= ispaired[ir];
+
+
+      if (isMC && ispaired[ir]) {
+        int ihadron = ana::findHadronBin(hadron_p[ir]);
+        hhadronp[ihadron][ir];
+      }
+
+      // Fill skimmed ttrees
+      if (ispaired[ir]) {
+        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+        int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 1);
+        int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 2);
+        float weight = (isMC ? reweight(maxpho.pt, vz) : 1.0);
+        if (iabcd == 0) { // Nominal
+          outtree_pho_pt[ir] = maxpho.pt;
+          outtree_jet_pt[ir] = maxjet_smear[ir].pt;
+          outtree_weight[ir] = weight;
+          outtree[ir]->Fill();
+          if (isMC) {
+            if (jet_pt_smear_high[ir] > ana::jet_calib_pt_cut[ir]) { // JER + uncertainty
+              outtree_pho_pt_JERhigh[ir] = maxpho.pt;
+              outtree_jet_pt_JERhigh[ir] = maxjet_smear_high[ir].pt;
+              outtree_weight_JERhigh[ir] = weight;
+              outtree_JERhigh[ir]->Fill();
+            }
+            if (jet_pt_smear_low[ir] > ana::jet_calib_pt_cut[ir]) { // JER - uncertainty
+              outtree_pho_pt_JERlow[ir] = maxpho.pt;
+              outtree_jet_pt_JERlow[ir] = maxjet_smear_low[ir].pt;
+              outtree_weight_JERlow[ir] = weight;
+              outtree_JERlow[ir]->Fill();
+            }
+          }
+        }
+        if (iabcd == 0 && !hasthirdjet[ir]) { // 3jet
+          outtree_pho_pt_3jet[ir] = maxpho.pt;
+          outtree_jet_pt_3jet[ir] = maxjet_smear[ir].pt;
+          outtree_weight_3jet[ir] = weight;
+          outtree_3jet[ir]->Fill();
+        }
+        if (iabcd_bdt == 0) { // narrow BDT
+          outtree_pho_pt_bdt[ir] = maxpho.pt;
+          outtree_jet_pt_bdt[ir] = maxjet_smear[ir].pt;
+          outtree_weight_bdt[ir] = weight;
+          outtree_bdt[ir]->Fill();
+        }
+        if (iabcd_iso == 0) { // narrow isolation energy
+          outtree_pho_pt_iso[ir] = maxpho.pt;
+          outtree_jet_pt_iso[ir] = maxjet_smear[ir].pt;
+          outtree_weight_iso[ir] = weight;
+          outtree_iso[ir]->Fill();
+        }
+      }
     }
    
     if (!anypaired) continue;
@@ -195,16 +318,14 @@ void histmaker::make_hists()
     hclustereta->Fill(maxpho.eta); 
     hclusteretaphi->Fill(maxpho.eta,maxpho.phi); 
     
-    bool isiso = maxpho.iso4 < ana::isoBins[0];
-    bool isbdt = maxpho.bdt > ana::bdtBins[0];
-    int iabcd = (((isiso << 0b1) | isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
     hclusterptabcd[iabcd]->Fill(maxpho.pt); 
     
     // cluster and jet kinematic histos
-    float frag =    getZ(maxpho, jets[1], 0);
-    float fragiso = getZ(maxpho, jets[1], 1);
-    if (frag > 0) hfrag->Fill(frag);
-    if (fragiso > 0) hfragiso->Fill(fragiso);
+    //float frag =    getZ(maxpho, jets[1], 0);
+    //float fragiso = getZ(maxpho, jets[1], 1);
+    //if (frag > 0) hfrag->Fill(frag);
+    //if (fragiso > 0) hfragiso->Fill(fragiso);
     
     if (maxpho.pt > 0) {
       hclusterptprecut->Fill(maxpho.pt);
@@ -213,80 +334,11 @@ void histmaker::make_hists()
       if (maxjet[i].pt > 0) {
         hjetptprecut[i]->Fill(maxjet[i].pt);
       }
-    }
-    
+    } 
+    hvz->Fill(vz);
   }
   // the end
   return;
-}
-
-
-// Finds the max jet on the opposite side of the detector given the max cluster 
-jet_object histmaker::getmaxjet(vector<jet_object> jets, pho_object pho,int ij) {
-  jet_object max;
-  for (int i = 0; i < jets.size(); i++) {
-    jet_object jet = jets.at(i);
-    float dr = pho.deltaR(jet);
-    hdeltar[ij]->Fill(dr);
-    float dphi = jet.deltaPhi(pho);
-    int ipt = ana::findPtBin(pho.pt);
-    if (ipt >= 0) hdeltaphiprecut[ipt][ij]->Fill(dphi);
-    if (!isMC && (mbd_t0 - jet.t > ana::thighcut || mbd_t0 - jet.t < ana::tlowcut)) continue;
-    if (dr < ana::drcut[ij]) continue;
-    if (jet.pt > max.pt) {
-      max = jet;
-    }
-  }
-  return max;
-}
-// Finds the max cluster
-pho_object histmaker::getmaxpho(vector<pho_object> phos) {
-  pho_object max;
-  for (int i = 0; i < phos.size(); i++) {
-    pho_object pho = phos.at(i);
-    if (!isMC && (mbd_t0 - pho.t > ana::thighcut || mbd_t0 - pho.t < ana::tlowcut)) continue;
-    if (pho.pt > max.pt) {
-      max = pho;
-    }
-  }
-  return max;
-}
-// Checks if there's a third jet in the event
-jet_object histmaker::getthirdjet(pho_object maxpho, jet_object maxjet, vector<jet_object> jets, int ir, int icalib) {
-  jet_object max3jet;
-  //if (jets.size() > 2) {
-  //cout << "Jets of radius " << ana::JetRs[ir] << ": " << jets.size() << endl;
-  //cout << " pho eta: " << maxpho.eta << "  pho phi: " << maxpho.phi << endl;
-  //cout << " jet eta: " << maxjet.eta << "  jet phi: " << maxjet.phi << endl;
-  //}
-  float ptcut = (icalib ? ana::jet_calib_pt_cut[ir] : ana::jet_pt_cut[ir]);
-  for (int i = 0; i < jets.size(); i++) {
-    jet_object jet = jets.at(i);
-    if (jet.pt < ptcut) continue;
-    //if (jets.size() > 2) cout << "3jet eta: " << jet.eta << " 3jet phi: " << jet.phi << " 3jet dRp: " << maxpho.deltaR(jet) << " 3jet dRj: " << maxjet.deltaR(jet) << " 3jet pt: " << jet.pt << endl;
-    if (maxpho.deltaR(jet) > ana::drcut[ir] && maxjet.deltaR(jet) > ana::drcut[ir]) {
-      //cout << "3jet eta: " << jet.eta << " 3jet phi: " << jet.phi << " 3jet dRp: " << maxpho.deltaR(jet) << " 3jet dRj: " << maxjet.deltaR(jet) << " 3jet pt: " << jet.pt << endl;
-      if (jet.pt > max3jet.pt) max3jet = jet;
-    }
-  }
-  return max3jet;
-}
-
-// Gets the fragmentation function of the cluster
-// Only considers jets within R=0.4 of the cluster. Has option for isolation energy or not
-float histmaker::getZ(pho_object pho, vector<jet_object> jets, bool isiso) {
-  jet_object closest;
-  float closestdr = 100;
-  float Z = 0;
-  for (int i = 0; i < jets.size(); i++) {
-    jet_object jet = jets.at(i);
-    float dr = pho.deltaR(jet);
-    if (dr < 0.4 && (!isiso && dr < closestdr) || (isiso && dr < closestdr && pho.iso4 < 2)) {
-      closestdr = dr;
-      Z = pho.pt/jet.pt;
-    }
-  }
-  return Z;
 }
 
 void histmaker::savehists(TH1D * h[], int n) {
@@ -314,7 +366,23 @@ void histmaker::savehists(TH2D * h[][ana::nJetR], int n, int m) {
   }
 }
 void histmaker::end() {
-  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/hists%s.root",trigger.c_str());
+  
+  std::cout << "Writing tree to " << treefilename << std::endl;
+  outfile->cd();
+  for (int ir = 0; ir < ana::nJetR; ir++) {
+    outtree[ir]->Write();
+    outtree_3jet[ir]->Write();
+    outtree_bdt[ir]->Write();
+    outtree_iso[ir]->Write(); 
+    if (isMC) {
+      outtree_JERhigh[ir]->Write();
+      outtree_JERlow[ir]->Write();
+    }
+  }
+
+
+  const char * wfilename = (trigger == "Data" ? Form("/home/samson72/sphnx/gammajet/hists/hists_%s.root",trigger.c_str()) : Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),trigger.c_str()));
+  std::cout << "Writing files to " << wfilename << std::endl;
   TFile *wf = TFile::Open(wfilename,"recreate");
   
   for (int i = 0; i < ana::nPtBins; i++) {
@@ -330,6 +398,9 @@ void histmaker::end() {
       }
     }
   }
+
+  hvz->Write();
+
   savehists(hisobdt,ana::nPtBins);
   savehists(hclusterptabcd,4); // for ABCD
   
@@ -339,6 +410,7 @@ void histmaker::end() {
   savehists(h3jetdeltar,ana::nPtBins, ana::nJetR);
   savehists(hjetetaxj,ana::nxjBins,ana::nJetR);
   savehists(hxjbdt,ana::nBdtBins,ana::nJetR);
+  savehists(hhadronp,ana::nHadronBins,ana::nJetR);
   
   savehists(hjetpt,ana::nJetR);
   savehists(hjetptprecut,ana::nJetR);
@@ -351,6 +423,7 @@ void histmaker::end() {
   savehists(hmtminusjt,ana::nJetR);
   savehists(hctminusjt,ana::nJetR);
   savehists(hjeteta,ana::nJetR);
+  savehists(hjetphi,ana::nJetR);
   savehists(hjetetahighem,ana::nJetR);
   savehists(hjetetalowem,ana::nJetR);
   savehists(hjetetaphi,ana::nJetR);
@@ -362,6 +435,7 @@ void histmaker::end() {
   savehists(hbdt,11);
   
   hclusterpt->Write();
+  hclusterphi->Write();
   htruthclusterpt->Write();
   hclusterptprecut->Write();
   htruthclusterptprecut->Write();
@@ -376,91 +450,8 @@ void histmaker::end() {
   hmct->Write();
   hmjt->Write();
   hcjt->Write();
+  hratiosingle->Write();
 
   std::cout << std::endl << "All done with " << trigger << "!" << std::endl;
-  if (isMC) {
-    cout << "Events with cluster: " << count_isc  << "/" << nentries << ": " << (int)((float)count_isc /(float)nentries*100) << "%" << endl;
-    for (int i = 0; i < ana::nJetR; i++) {
-      cout << Form("Events with jet R=0.%i:   ",2*(i+1)) << count_isj[i] << "/" << nentries << ": " << (int)((float)count_isj[i]/(float)nentries*100) << "%" << endl;
-    }
-  }
 }
 
-void histmaker::treesetup() {
-  cluster_pt = 0;
-  cluster_e = 0;
-  cluster_eta = 0;
-  cluster_phi = 0;
-  cluster_time = 0;
-  cluster_bdt_scores = 0;
-  cluster_showershape = 0;
-
-  truth_cluster_pt = 0;
-  truth_cluster_e = 0;
-  truth_cluster_eta = 0;
-  truth_cluster_phi = 0;
-
-  jet_pt = 0;
-  jet_pt_calib = 0;
-  jet_pt_smear = 0;
-  jet_e = 0;
-  jet_eta = 0;
-  jet_phi = 0;
-  jet_emfrac = 0;
-  jet_ihfrac = 0;
-  jet_ohfrac = 0;
-  jet_time = 0;  
-
-  truth_jet_pt = 0;
-  truth_jet_e = 0;
-  truth_jet_eta = 0;
-  truth_jet_phi = 0;
-
-  // Set branch addresses and branch pointers
-  if (!t) return;
-
-  t->SetBranchAddress("RunNumber", &RunNumber, &b_RunNumber);
-  t->SetBranchAddress("vz", &vz, &b_vz);
-  t->SetBranchAddress("ScaledTriggerBit", ScaledTriggerBit, &b_ScaledTriggerBit);
-  t->SetBranchAddress("LiveTriggerBit", LiveTriggerBit, &b_LiveTriggerBit);
-  t->SetBranchAddress("Scaledowns", Scaledowns, &b_Scaledowns);
-  t->SetBranchAddress("mbd_nhits_south", &mbd_nhits_south, &b_mbd_nhits_south);
-  t->SetBranchAddress("mbd_nhits_north", &mbd_nhits_north, &b_mbd_nhits_north);
-  t->SetBranchAddress("mbd_time_south", &mbd_time_south, &b_mbd_time_south);
-  t->SetBranchAddress("mbd_time_north", &mbd_time_north, &b_mbd_time_north);
-
-  t->SetBranchAddress("nClusters", &nClusters, &b_nClusters);
-  t->SetBranchAddress("cluster_pt" , &cluster_pt , &b_cluster_pt );
-  t->SetBranchAddress("cluster_e"  , &cluster_e  , &b_cluster_e  );
-  t->SetBranchAddress("cluster_eta", &cluster_eta, &b_cluster_eta);
-  t->SetBranchAddress("cluster_phi", &cluster_phi, &b_cluster_phi);
-  t->SetBranchAddress("cluster_showershape", &cluster_showershape, &b_cluster_showershape);
-  t->SetBranchAddress("cluster_time", &cluster_time, &b_cluster_time);
-  t->SetBranchAddress("cluster_bdt_scores", &cluster_bdt_scores, &b_cluster_bdt_scores);
-
-  t->SetBranchAddress("nJets", nJets, &b_nJets);
-  t->SetBranchAddress("jet_pt" , &jet_pt , &b_jet_pt );
-  t->SetBranchAddress("jet_pt_calib" , &jet_pt_calib , &b_jet_pt_calib );
-  t->SetBranchAddress("jet_e"  , &jet_e  , &b_jet_e  );
-  t->SetBranchAddress("jet_eta", &jet_eta, &b_jet_eta);
-  t->SetBranchAddress("jet_phi", &jet_phi, &b_jet_phi);
-  t->SetBranchAddress("jet_emfrac", &jet_emfrac, &b_jet_emfrac);
-  t->SetBranchAddress("jet_ihfrac", &jet_ihfrac, &b_jet_ihfrac);
-  t->SetBranchAddress("jet_ohfrac", &jet_ohfrac, &b_jet_ohfrac);
-  t->SetBranchAddress("jet_time", &jet_time, &b_jet_time);
-
-  if (isMC) {   
-    t->SetBranchAddress("jet_pt_smear" , &jet_pt_smear , &b_jet_pt_smear );
-    t->SetBranchAddress("nTruthClusters", &nTruthClusters, &b_nTruthClusters);
-    t->SetBranchAddress("truth_cluster_pt" , &truth_cluster_pt , &b_truth_cluster_pt );
-    t->SetBranchAddress("truth_cluster_e"  , &truth_cluster_e  , &b_truth_cluster_e  );
-    t->SetBranchAddress("truth_cluster_eta", &truth_cluster_eta, &b_truth_cluster_eta);
-    t->SetBranchAddress("truth_cluster_phi", &truth_cluster_phi, &b_truth_cluster_phi);
-    
-    t->SetBranchAddress("nTruthJets", nTruthJets, &b_nTruthJets);
-    t->SetBranchAddress("truth_jet_pt" , &truth_jet_pt , &b_truth_jet_pt );
-    t->SetBranchAddress("truth_jet_e"  , &truth_jet_e  , &b_truth_jet_e  );
-    t->SetBranchAddress("truth_jet_eta", &truth_jet_eta, &b_truth_jet_eta);
-    t->SetBranchAddress("truth_jet_phi", &truth_jet_phi, &b_truth_jet_phi);
-  }
-}

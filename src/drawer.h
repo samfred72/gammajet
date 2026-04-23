@@ -13,17 +13,17 @@ using namespace std;
 
 class drawer {
   public :
-    drawer() {
-      TFile * f = TFile::Open(         "/home/samson72/sphnx/gammajet/hists/histsData.root");         
-      TFile * f05_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Photon5"));
-      TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Photon10"));
-      TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Photon20"));
-      TFile * f05_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet5"));
-      TFile * f10_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet10"));
-      TFile * f20_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet20"));
-      TFile * f30_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet30"));
-      TFile * f50_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet50"));
-      TFile * f70_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists%s.root","Jet70"));
+    drawer(string sim="pythia") {
+      TFile * f = TFile::Open(         "/home/samson72/sphnx/gammajet/hists/hists_Data.root");         
+      TFile * f05_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Photon5"));
+      TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Photon10"));
+      TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Photon20"));
+      TFile * f05_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet5"));
+      TFile * f10_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet10"));
+      TFile * f20_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet20"));
+      TFile * f30_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet30"));
+      TFile * f50_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet50"));
+      TFile * f70_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet70"));
       dfiles[0] = f;
 
       pfiles[0] = f05_p;
@@ -36,15 +36,39 @@ class drawer {
       jfiles[3] = f30_j;
       jfiles[4] = f50_j;
       jfiles[5] = f70_j;
+
+
+      cout << "simulation val is: " << sim << endl;
+      scalemap = (sim == "pythia" ?
+        map<bool,map<int,double>> {
+          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {1,{{5,146359.3},{10,6944.675},{20,130.4461}}},
+        } :
+           map<bool,map<int,double>> {
+          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {1,{{5,6.48487e+07},{10,3.62808e+02},{20,5.34010e+01}}}
+        }
+      );
     }
-    drawer(bool unfolding) {
-      TFile * f05_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon5"));
-      TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon10"));
-      TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root","Photon20"));
+    drawer(bool unfolding, string sim) {
+      TFile * f05_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_%s_unfolding.root","Photon5" , sim.c_str()));
+      TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_%s_unfolding.root","Photon10", sim.c_str()));
+      TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/%s_%s_unfolding.root","Photon20", sim.c_str()));
 
       pfiles[0] = f05_p;
       pfiles[1] = f10_p;
       pfiles[2] = f20_p;
+      
+      scalemap = (sim == "pythia" ?
+        map<bool,map<int,double>> {
+          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {1,{{5,146359.3},{10,6944.675},{20,130.4461}}},
+        } :
+           map<bool,map<int,double>> {
+          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {1,{{5,6.48487e+07},{10,3.62808e+02},{20,5.34010e+01}}}
+        }
+      );
 
     }
     ~drawer(); 
@@ -64,8 +88,8 @@ class drawer {
     TH1D * combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, string name); 
     TH1D * combineMC(const char * histname, bool isphoton); 
     TH2D * combineMC2d(const char * histname, bool isphoton); 
-    TH1D * get(const char * histname, int type);
-    TH2D * get2d(const char * histname, int type);
+    TH1D * get(const char * histname, int type, int ihist = -1);
+    TH2D * get2d(const char * histname, int type, int ihist = -1);
 
   private :
 
@@ -79,10 +103,10 @@ class drawer {
     vector<int> psamples = {5,10,20};
     vector<int> jsamples = {5,10,20,30,50,70};
 
-    map<bool,map<int,double>> scalemap = {
-      {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
-      {1,{{5,146359.3},{10,6944.675},{20,130.4461}}}
-    };
+    // 0: pythia jets
+    // 1: pythia photon
+    // 2: herwig photon
+    map<bool,map<int,double>> scalemap;
 };
 
 #endif // DRAWER_H

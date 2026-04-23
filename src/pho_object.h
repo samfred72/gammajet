@@ -17,6 +17,8 @@ class pho_object : public object {
   {}
 
     ~pho_object();
+    static int get_showershape(float showershapes[], float pt);
+    void print(bool s = 0);
 
     float iso3 = 0;
     float iso4 = 0;

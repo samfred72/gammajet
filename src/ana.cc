@@ -30,6 +30,15 @@ Int_t ana::findPtBin(double value)
   }
   return -1;
 }
+Int_t ana::findTrijetPtBin(double value)
+{
+  for (int i = 0; i < nTrijetPtBins; ++i) {
+    if (value >= trijetPtBins[i] && value < trijetPtBins[i + 1]) {
+      return  i;
+    }
+  }
+  return -1;
+}
 Int_t ana::findxjBin(double value)
 {
   for (int i = 0; i < nxjBins; ++i) {
@@ -47,6 +56,18 @@ Int_t ana::findBdtBin(double value)
     }
   }
   return -1;
+}
+
+Int_t ana::findUnfoldBin(double xj, double pt)
+{
+  if (xj > 2.0) return -1;
+  int ixj = (int)(xj/2.0 * nUnfoldBins);
+  int ipt = findPtBin(pt);
+    
+  //if (xj < 0) cout << endl << endl << "XJ LOWER THAN 1!!! " << xj << ": " << ixj << " " << pt << ": " << ipt << " " <<ipt*nUnfoldBins + ixj << endl << endl;
+  if (ipt < 0) return -1;
+  if (ixj < 0) return -1;
+  return ipt*nUnfoldBins + ixj;
 }
 
 Int_t ana::findabcdBin(double iso, double bdt, int bin)
@@ -113,6 +134,17 @@ Int_t ana::findabcdBin(double iso, int showershape, int bin) {
     int iabcd = (((b_isiso << 0b1) | b_istight) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
     return iabcd;
   }
+}
+
+Int_t ana::findHadronBin(double value) {
+  for (int i = 0; i < nHadronBins; i++) {
+    float binlow = hadronBins[i][0];
+    float binhigh = hadronBins[i][1];
+    if (value > binlow && value < binhigh) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 float ana::getPurity(float low, float high) {

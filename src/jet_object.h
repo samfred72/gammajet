@@ -18,6 +18,7 @@ class jet_object : public object {
   {}
 
     ~jet_object();
+    void print(bool s = 0);
 
     float emfrac = 0;
     float ihfrac = 0;
