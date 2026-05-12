@@ -11,8 +11,8 @@ void drawer::drawLine(float x1, float y1, float x2, float y2) {
 
 void drawer::drawText(const char *text, float xp, float yp, int textColor, int textSize) {
    TLatex *tex = new TLatex(xp,yp,text);
+   //tex->SetTextAlign(22);
    tex->SetTextFont(43);
-   //   if(bold)tex->SetTextFont(43);
    tex->SetTextSize(textSize);
    tex->SetTextColor(textColor);
    tex->SetLineWidth(1);
@@ -41,7 +41,7 @@ void drawer::drawAll(vector<string> samples, vector<string> features, float draw
 }
 
 void drawer::format(TH1D * h, int type) {
-  int colors[4] = {kBlue, kMagenta+1, kSpring+2, kGray+3};
+  int colors[4] = {kBlue, kMagenta+1, kSpring-1, kGray+3};
   h->SetLineColor(colors[type]);
   scale(h,0,2);
   h->GetYaxis()->SetRangeUser(0,h->GetMaximum()*1.5);
@@ -49,7 +49,7 @@ void drawer::format(TH1D * h, int type) {
   else h->SetLineWidth(1);
 }
 void drawer::format(TF1 * f, int type) {
-  int colors[4] = {kBlue, kMagenta+1, kSpring+2, kGray+3};
+  int colors[4] = {kBlue, kMagenta+1, kSpring-1, kGray+3};
   f->SetLineColor(colors[type]);
   f->SetLineWidth(1);
 }
@@ -180,11 +180,11 @@ TH2D * drawer::get2d(const char * histname, int type, int ihist) {
 }
 
 TH1D * drawer::combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D, int ipt, string name) { 
-  TH1D * h = (TH1D*)A->Clone(name.c_str());
-  h->Reset("ICES");
+  TH1D * eh = (TH1D*)empty_hist->Clone(name.c_str());
+  eh->Reset("ICES");
   float p = ana::getPurity(ana::ptBins[ipt],ana::ptBins[ipt+1]);
-  h->Add(A,C,1/p,-(1-p)/p);
-  return h;
+  eh->Add(A,C,1/p,-(1-p)/p);
+  return eh;
 }
 vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::get_empty_TH1D() {
   vector<vector<vector<vector<vector<vector<TH1D*>>>>>> v(
@@ -242,10 +242,11 @@ vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(cons
 
   for (int i = 0; i < ana::nPtBins; i++) {
     for (int j = 0; j < ana::nJetR; j++) {
-      for (int k = 0; k < ana::nCalibBins; k++) {
+      for (int k = 3; k < ana::nCalibBins; k++) {
+        if (k == 4) continue;
         for (int l = 0; l < ana::nIsoBdtBins; l++) {
           for (int m = 0; m < ana::n3jetBins; m++) {
-            //cout << i << j << k << l << m << endl;
+            //cout << simulation << " " << i << j << k << l << m << endl;
             for (int n = 0; n < 4; n++) {
               if (type) { // It's an MC sample
                 hists[i][j][k][l][m][n] = combineMC(Form("%s_%i_%i_%i_%i_%i_%i",histname,i,j,k,l,m,n),isphoton);

@@ -2,7 +2,7 @@
 #include "/home/samson72/sphnx/gammajet/src/drawer.h"
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 
-void draw_insitu_fit(const char * form = "nominal", int ir = 1) {
+void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
   const char * rname = ana::rnames[ir];
   TFile * fl = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_%s_%s.root",form,rname));
   TFile * fq = TFile::Open("/home/samson72/sphnx/gammajet/hists/insitu_fit_quad.root");
@@ -13,90 +13,86 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 1) {
   TH1D * hq = (TH1D*)fq->Get("hinsitu");
   TH1D * hq3 = (TH1D*)fq->Get("hinsitu3");
    
-  double xmin = 10;
-  double xmax = 60;
-  double ymin = 0.9;
-  double ymax = 1.15;
   cout << "Drawing insitu" << endl;
   TCanvas * c = new TCanvas("c","",700,700);
-  TH1F* frame = c->DrawFrame(xmin, ymin, xmax, ymax);
-  frame->GetXaxis()->SetTitle("cluster p_{T} [GeV]");
-  frame->GetYaxis()->SetTitle("ratio data <x_{J}>/MC <x_{J}>");
-  frame->GetXaxis()->SetTitleColor(kBlue);
-  frame->GetXaxis()->SetLabelColor(kBlue);
 
-
-  TGaxis *topAxis = new TGaxis(xmin, ymax, xmax, ymax, xmin, xmax, 510, "-");
-  topAxis->SetTitle("leading jet p_{T} [GeV]");
-  topAxis->SetTitleColor(kOrange+1);
-  topAxis->SetLabelColor(kOrange+1);
-  topAxis->SetTitleFont(42);
-  topAxis->SetLabelFont(42);
-  topAxis->Draw();
-
-  c->GetFrame()->SetLineWidth(0);
-  c->Modified();
-  c->Update();
   gStyle->SetOptStat(0);
   gPad->SetTicks(1,1);
   gPad->SetLeftMargin(.15);
   
+  hs->GetXaxis()->SetTitle("p_{T}^{#gamma} [GeV]");
+  hs->GetYaxis()->SetTitle("Ratio of <x_{J#gamma}> in Simulation to Data");
+  hs->GetXaxis()->SetTitleOffset(1.3);
+  hs->GetYaxis()->SetRangeUser(0.9,1.15);
   hs->SetLineColor(kBlue);
   hs->SetMarkerColor(kBlue);
   hs->SetMarkerStyle(24);
   hs->SetMarkerSize(1);
   hs->Draw("same");
   
-
   hl->SetLineColor(kBlue);
   hl->SetMarkerColor(kBlue);
   hl->SetMarkerStyle(21);
   hl->SetMarkerSize(1);
   hl->Draw("same");
   
-  //hq->SetLineColor(kBlue);
-  //hq->SetMarkerColor(kBlue);
-  //hq->SetMarkerStyle(21);
-  //hq->SetMarkerSize(1);
-  //hq->Draw("same");
+  TLegend * leg = new TLegend(0.17,0.53,0.6,0.68);
+  leg->AddEntry(hs, "Uncorrected #gamma-Jet ratio");
+  leg->AddEntry(hl, "Corrected #gamma-Jet ratio");
+  leg->SetLineWidth(0);
+  leg->Draw();
+  
+  // Line for 1
+  TLine * l = new TLine(10,1,35, 1);
+  l->SetLineStyle(9);
+  l->Draw("same");
+  
+  drawer d;
+  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{
+      //"|vz| < 60 cm", 
+      Form("|#eta| < %1.1f",1.1-ana::JetRs[ir]),
+      Form("Jet R=%1.1f", ana::JetRs[ir]),
+      },.20,.83,21, 700);
 
-  hs3->SetLineColor(kOrange+1);
-  hs3->SetMarkerColor(kOrange+1);
+  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/corrected_insitu_gammajet_%s_%s.pdf", form, rname));
+  
+  TCanvas * c3 = new TCanvas("c3","",700,700);
+  gPad->SetTicks(1,1);
+  gPad->SetLeftMargin(.15);
+  
+  hs3->GetXaxis()->SetTitle("p_{T,1}^{jet} [GeV]");
+  hs3->GetYaxis()->SetTitle("Ratio of <x_{J}^{-1}> in Simulation to Data");
+  hs3->GetXaxis()->SetTitleOffset(1.3);
+  hs3->GetYaxis()->SetRangeUser(0.9,1.15);
+  hs3->SetLineColor(kRed+2);
+  hs3->SetMarkerColor(kRed+2);
   hs3->SetMarkerStyle(24);
   hs3->SetMarkerSize(1);
   hs3->Draw("same");
 
-  hl3->SetLineColor(kOrange+1);
-  hl3->SetMarkerColor(kOrange+1);
+  hl3->SetLineColor(kRed+2);
+  hl3->SetMarkerColor(kRed+2);
   hl3->SetMarkerStyle(21);
   hl3->SetMarkerSize(1);
   hl3->Draw("same");
   
-  //hq3->SetLineColor(kOrange+10);
-  //hq3->SetMarkerColor(kOrange+10);
-  //hq3->SetMarkerStyle(21);
-  //hq3->SetMarkerSize(1);
-  //hq3->Draw("same");
+  TLegend * leg3 = new TLegend(0.17,0.53,0.6,0.68);
+  leg3->AddEntry(hs3, "Uncorrected multijet ratio");
+  leg3->AddEntry(hl3, "Corrected multijet ratio");
+  leg3->SetLineWidth(0);
+  leg3->Draw("same");
 
-  TLegend * leg = new TLegend(0.17,0.6,0.6,0.89);
-  leg->AddEntry(hs, "Uncorrected #gamma-Jet ratio");
-  leg->AddEntry(hl, "Linearly corrected #gamma-Jet ratio");
-  //leg->AddEntry(hq, "Quadratically corrected #gamma-Jet ratio");
-  leg->AddEntry(hs3, "Uncorrected multijet ratio");
-  leg->AddEntry(hl3, "Linearly corrected multijet ratio");
-  //leg->AddEntry(hq3, "Quadratically corrected multijet ratio");
-  leg->SetLineWidth(0);
-  leg->Draw("same");
+  TLine * l3 = new TLine(20,1,60, 1);
+  l3->SetLineStyle(9);
+  l3->Draw("same");
 
-  // Line for 1
-  TLine * l = new TLine(10,1,60, 1);
-  l->SetLineStyle(9);
-  l->Draw("same");
+  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{
+      //"|vz| < 60 cm", 
+      Form("|#eta| < %1.1f",1.1-ana::JetRs[ir]),
+      Form("Jet R=%1.1f",ana::JetRs[ir])
+      },.20,.83,21, 700);
 
-  drawer d;
-  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{"|vz| < 60 cm", "|#eta| < 1.1",Form("Jet R=%1.1f",ana::JetRs[ir])},.6,.83,15, 700);
-
-  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/corrected_insitu_%s_%s.pdf", form, rname));
+  c3->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/corrected_insitu_multijet_%s_%s.pdf", form, rname));
 
 
 
@@ -117,19 +113,19 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 1) {
   tq->GetEntry(0);
 
   TCanvas * c2 = new TCanvas("c2","",700,700);
-  xmin = 5;
-  xmax = 80;
-  ymin = 0.9;
-  ymax = 1.15;
+  float xmin = 5;
+  float xmax = 80;
+  float ymin = 0.9;
+  float ymax = 1.15;
   TH1F* frame2 = c2->DrawFrame(xmin, ymin, xmax, ymax);
   frame2->GetXaxis()->SetTitle("jet p_{T} [GeV]");
   frame2->GetYaxis()->SetTitle("#it{in situ} value");
-  c2->GetFrame()->SetLineWidth(0);
-  c2->Modified();
-  c2->Update();
+  //c2->GetFrame()->SetLineWidth(0);
   gStyle->SetOptStat(0);
   gPad->SetTicks(1,1);
   gPad->SetLeftMargin(.15);
+  c2->Modified();
+  c2->Update();
   
   
   int nPoints = 1000;
@@ -195,7 +191,6 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 1) {
   leg2->SetFillStyle(0);
   leg2->Draw();
   
-  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{"|vz| < 60 cm", "|#eta| < 1.1"},.2,.83,20, 700);
 
   //d.drawText("Best func: ", .15,.25,1,20);
   //d.drawText(Form("%.5f + %.5f*pT + %.5f*pT^{2}",minpa,minpb,minpc), .15,.20,1,20);

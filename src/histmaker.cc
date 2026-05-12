@@ -16,9 +16,9 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
   }
  
   //cout << pho.eta << " " << jet.eta << " " << dphi << " " << ipt << endl; 
-  if (abs(pho.eta) > ana::etacut) return false;
-  if (abs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
-  if (!isMC && abs(pho.t - jet.t) > ana::tcut) return false;
+  if (fabs(pho.eta) > ana::etacut) return false;
+  if (fabs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
+  if (!isMC && fabs(pho.t - jet.t) > ana::tcut) return false;
   if (dphi < ana::oppcut) return false;
   if (ipt < 0) return false;
   if (useshowershape && pho.showershape == 0) return false;

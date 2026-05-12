@@ -7,9 +7,9 @@ bool unfolder::check_pair(jet_object jet, int ir, pho_object pho, bool isreco) {
   float dphi = jet.deltaPhi(pho);
   int iabcd = ana::findabcdBin(pho.iso4, pho.bdt, 0);
   
-  if (iabcd != 0) return false;
-  if (abs(pho.eta) > ana::etacut) return false;
-  if (abs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
+  //if (iabcd != 0) return false;
+  if (fabs(pho.eta) > ana::etacut) return false;
+  if (fabs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
   if (dphi < ana::oppcut) return false;
   
   return true;
@@ -148,51 +148,23 @@ void unfolder::fill_matrix() {
       // -----------------------
       //if (bin < 0 && ispaired[ir]) cout << "ISSUE RECO!!! xj: " << xj << " pt: " << maxpho.pt << endl;
       //if (bin_truth < 0 && ispaired_truth[ir]) cout << "ISSUE TRUTH!!! xj: " << xj_truth << " pt: " << maxpho_truth.pt << endl;
-      bool ismatch = false;
-      if (ispaired[ir] && !ispaired_truth[ir] && bin >= 0) {
-        jet_response[ir]->Fake(maxjet[ir].pt);
-        pho_response[ir]->Fake(maxpho.pt);
-        jet_response2D[ir]->Fake(bin);
-        hphomissfake[ir]->Fill(maxpho.pt,100);
-        hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
-        hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+      bool ismatch = check_match(maxjet[ir], maxjet_truth[ir]);
+      if (ispaired_truth[ir] && ispaired[ir] && ismatch ) {
+        jet_response[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
+        pho_response[ir]->Fill(maxpho.pt, maxpho_truth.pt);
+        jet_response2D[ir]->Fill(bin, bin_truth);
+
+        hphomissfake[ir]->Fill(maxpho.pt,maxpho_truth.pt);
+        hjetmissfake[ir]->Fill(maxjet[ir].pt,maxjet_truth[ir].pt);
+        hpairmissfake[ir]->Fill(bin,bin_truth);
+
         if (use_half) {
-          jet_response_half[ir]->Fake(maxjet[ir].pt);
-          pho_response_half[ir]->Fake(maxpho.pt);
-          jet_response_half2D[ir]->Fake(bin);
+          jet_response_half[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
+          pho_response_half[ir]->Fill(maxpho.pt, maxpho_truth.pt);
+          jet_response_half2D[ir]->Fill(bin, bin_truth); 
         }
       }
-      else if (!ispaired[ir] && ispaired_truth[ir] && bin_truth >= 0) {
-        jet_response[ir]->Miss(maxjet_truth[ir].pt);
-        pho_response[ir]->Miss(maxpho_truth.pt);
-        jet_response2D[ir]->Miss(bin_truth);
-        hphomissfake[ir]->Fill(100,maxpho_truth.pt);
-        hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
-        hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
-        if (use_half) {
-          jet_response_half[ir]->Miss(maxjet_truth[ir].pt);
-          pho_response_half[ir]->Miss(maxpho_truth.pt);
-          jet_response_half2D[ir]->Miss(bin_truth);
-        }
-      }
-      else if (ispaired[ir] && ispaired_truth[ir] && bin >= 0 && bin_truth >= 0) {
-        ismatch = check_match(maxpho, maxpho_truth, maxjet[ir], maxjet_truth[ir]);
-        if (ismatch) {
-          jet_response[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
-          pho_response[ir]->Fill(maxpho.pt, maxpho_truth.pt);
-          jet_response2D[ir]->Fill(bin, bin_truth);
-        
-          hphomissfake[ir]->Fill(maxpho.pt,maxpho_truth.pt);
-          hjetmissfake[ir]->Fill(maxjet[ir].pt,maxjet_truth[ir].pt);
-          hpairmissfake[ir]->Fill(bin,bin_truth);
-          
-          if (use_half) {
-            jet_response_half[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
-            pho_response_half[ir]->Fill(maxpho.pt, maxpho_truth.pt);
-            jet_response_half2D[ir]->Fill(bin, bin_truth); 
-          }
-        }
-        else {
+      else if (ispaired_truth[ir] && ispaired[ir] && !ismatch) {
           jet_response[ir]->Miss(maxjet_truth[ir].pt);
           jet_response[ir]->Fake(maxjet[ir].pt);
           pho_response[ir]->Miss(maxpho_truth.pt);
@@ -216,9 +188,35 @@ void unfolder::fill_matrix() {
             jet_response_half2D[ir]->Miss(bin_truth);
             jet_response_half2D[ir]->Fake(bin);
           }
+
+      }
+      else if (ispaired_truth[ir] && !ispaired[ir]) {
+        jet_response[ir]->Miss(maxjet_truth[ir].pt);
+        pho_response[ir]->Miss(maxpho_truth.pt);
+        jet_response2D[ir]->Miss(bin_truth);
+        hphomissfake[ir]->Fill(100,maxpho_truth.pt);
+        hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
+        hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
+        if (use_half) {
+          jet_response_half[ir]->Miss(maxjet_truth[ir].pt);
+          pho_response_half[ir]->Miss(maxpho_truth.pt);
+          jet_response_half2D[ir]->Miss(bin_truth);
         }
       }
-
+      else if (!ispaired_truth[ir] && ispaired[ir]) {
+        jet_response[ir]->Fake(maxjet[ir].pt);
+        pho_response[ir]->Fake(maxpho.pt);
+        jet_response2D[ir]->Fake(bin);
+        hphomissfake[ir]->Fill(maxpho.pt,100);
+        hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
+        hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+        if (use_half) {
+          jet_response_half[ir]->Fake(maxjet[ir].pt);
+          pho_response_half[ir]->Fake(maxpho.pt);
+          jet_response_half2D[ir]->Fake(bin);
+        }
+      }
+      
       // ------------------
       // Fill Histograms
       // ------------------
@@ -263,8 +261,8 @@ void unfolder::fill_matrix() {
           int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
           cout << "Event " << ndraw + 1 << " reco failed because: ";
           if (iabcd != 0) cout << endl << "abcd cut: BDT: " << maxpho.bdt << " ISO: " << maxpho.iso4;
-          if (abs(maxpho.eta) >= ana::etacut) cout << endl << "photon eta: " << abs(maxpho.eta);
-          if (abs(maxjet[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << abs(maxjet[ir].eta);
+          if (fabs(maxpho.eta) >= ana::etacut) cout << endl << "photon eta: " << fabs(maxpho.eta);
+          if (fabs(maxjet[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << fabs(maxjet[ir].eta);
           if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
           if (maxpho.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho.pt;
           if (maxjet[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet[ir].pt;
@@ -276,8 +274,8 @@ void unfolder::fill_matrix() {
           int iabcd = ana::findabcdBin(maxpho_truth.iso4, maxpho_truth.bdt, 0);
           cout << "Event " << ndraw + 1 << " truth failed because: ";
           if (iabcd != 0) cout << endl << "abcd cut: BDT: " << maxpho_truth.bdt << " ISO: " << maxpho_truth.iso4;
-          if (abs(maxpho_truth.eta) >= ana::etacut) cout << endl << "photon eta: " << abs(maxpho_truth.eta);
-          if (abs(maxjet_truth[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << abs(maxjet_truth[ir].eta);
+          if (fabs(maxpho_truth.eta) >= ana::etacut) cout << endl << "photon eta: " << fabs(maxpho_truth.eta);
+          if (fabs(maxjet_truth[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << fabs(maxjet_truth[ir].eta);
           if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
           if (maxpho_truth.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho_truth.pt;
           if (maxjet_truth[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet_truth[ir].pt;
@@ -349,6 +347,7 @@ void unfolder::unfold() {
   // -----------------------
 
   for (int ir = 0; ir < ana::nJetR; ir++) {
+    // Full Closure
     RooUnfoldBayes jet_unfold(jet_response[ir], hrecojetpt[ir], niterate, 0, 1);
     hunfoldjetpt[ir] = (TH1D*)jet_unfold.Hreco();
     hunfoldjetpt[ir]->SetName(Form("hunfoldjetpt%i", ir));
@@ -361,6 +360,13 @@ void unfolder::unfold() {
     hphoresponse[ir] = (TH2D*)pho_response[ir]->Hresponse();
     hphoresponse[ir]->SetName(Form("hphoresponse%i",ir));
     
+    RooUnfoldBayes jet_unfold2D(jet_response2D[ir], hrecoxj[ir], niterate, 0, 1);
+    hunfoldxj[ir] = (TH1D*)jet_unfold2D.Hreco();
+    hunfoldxj[ir]->SetName(Form("hunfoldxj%i",  ir));
+    hxjresponse[ir] = (TH2D*)jet_response2D[ir]->Hresponse();
+    hxjresponse[ir]->SetName(Form("hxjresponse%i", ir));
+    
+    // Half closure
     RooUnfoldBayes jet_unfold_half(jet_response_half[ir], hrecojetpt_half[ir], niterate, 0, 1);
     hunfoldjetpt_half[ir] = (TH1D*)jet_unfold_half.Hreco();
     hunfoldjetpt_half[ir]->SetName(Form("hunfoldjetpt_half%i", ir));
@@ -373,11 +379,6 @@ void unfolder::unfold() {
     hphoresponse_half[ir] = (TH2D*)pho_response_half[ir]->Hresponse();
     hphoresponse_half[ir]->SetName(Form("hphoresponse_half%i",ir));
     
-    RooUnfoldBayes jet_unfold2D(jet_response2D[ir], hrecoxj[ir], niterate, 0, 1);
-    hunfoldxj[ir] = (TH1D*)jet_unfold2D.Hreco();
-    hunfoldxj[ir]->SetName(Form("hunfoldxj%i",  ir));
-    hxjresponse[ir] = (TH2D*)jet_response2D[ir]->Hresponse();
-    hxjresponse[ir]->SetName(Form("hxjresponse%i", ir));
 
     RooUnfoldBayes jet_unfold_half2D(jet_response_half2D[ir], hrecoxj_half[ir], niterate, 0, 1);
     hunfoldxj_half[ir] = (TH1D*)jet_unfold_half2D.Hreco();

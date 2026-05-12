@@ -23,7 +23,7 @@ inline float compute_pt_sum(
 // -----------------------------
 // Main optimized function
 // -----------------------------
-void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
+void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
 
 
   drawer d;
@@ -122,16 +122,16 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
 
   TFile * f3;
   if (strcmp(form,"JERhigh") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sJERHigh.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERHigh.root",rname),"READ");
   }
   else if (strcmp(form,"JERlow") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sJERLow.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERLow.root",rname),"READ");
   }
   else if (strcmp(form,"HERWIG") == 0) {
     f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sHERWIG.root",rname),"READ");
   }
   else {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%s.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIA.root",rname),"READ");
   }
   
 
@@ -200,6 +200,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
   float standardmeans[nTot];
   float standardmerrs[nTot];
 
+  TH2D *hchisq2d = new TH2D("hchisq2d",";pa;pb",na,lowa-0.00001,higha-0.00001,nb,lowb-0.00001,highb-0.00001);
+
   // -----------------------------
   // GRID LOOP
   // -----------------------------
@@ -217,6 +219,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
       // gammajet
       for (auto &ev : gamma) {
         float f = pa + pb*ev.pt;
+        //float f = pa*(1 + pb*ev.pt);
         float x = ev.base / f;
 
         float lowval = (int)(ana::jet_calib_pt_cut[1]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
@@ -231,6 +234,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
       for (auto &ev : trijet) {
         float f1 = pa + pb*ev.sl;
         float f2 = pa + pb*ev.ssl;
+        //float f1 = pa*(1 + pb*ev.sl);
+        //float f2 = pa*(1 + pb*ev.ssl);
 
         float pt1 = ev.sl / f1;
         float pt2 = ev.ssl / f2;
@@ -238,6 +243,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
         float multi = compute_pt_sum(pt1, ev.slphi, pt2, ev.sslphi);
 
         float fL = pa + pb*ev.lead;
+        //float fL = pa*(1 + pb*ev.lead);
         float x = ev.lead / multi / fL;
 
         int b = ana::nPtBins + ev.bin;
@@ -252,7 +258,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
       float chisq = 0;
       float mean;
       float err;
-      for (int i = 0; i < nTot-1; i++) {
+      for (int i = 0; i < nTot; i++) {
         if (count[i] == 0) continue;
 
         float mean = sum[i]/count[i];
@@ -263,8 +269,9 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
         float refe = (i < ana::nPtBins) ? merrp[i] : merr3[i-ana::nPtBins];
 
         float diff = 1 - mean/refm;
-        float errt = sqrt(err*err + refe*refe);
+        //float errt = sqrt(err*err + refe*refe);
         //if (errt < 0.01) errt = 0.01;
+        float errt = sqrt((err*err) / (refm*refm) + (mean*mean) * (refe*refe) / (refm*refm*refm*refm));
 
         chisq += (diff*diff)/(errt*errt);
       }
@@ -273,7 +280,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
         minchisq = chisq;
         minpa = pa;
         minpb = pb;
-        for (int i = 0; i < nTot - 1; i++) {
+        for (int i = 0; i < nTot; i++) {
           float mean = sum[i]/count[i];
           float var  = sum2[i]/count[i] - mean*mean;
           float err  = sqrt(var/count[i]);
@@ -286,6 +293,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
       }
 
       hchisq->Fill(chisq);
+      hchisq2d->Fill(pa,pb,chisq);
       result.push_back({pa,pb,chisq});
     }
   }
@@ -331,8 +339,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
       count[b]++;
     }
   }
-  for (int i = 0; i < nTot-1; i++) {
-    if (count[i] == 0) continue;
+  for (int i = 0; i < nTot; i++) {
+    //if (count[i] == 0) continue;
 
     float mean = sum[i]/count[i];
     float var  = sum2[i]/count[i] - mean*mean;
@@ -375,6 +383,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
   int nKeep; 
   for (int i = 0; i < result.size(); i++) {
     if (result.at(i).chisq < minChi + 3.53) {
+    //if (result.at(i).chisq < minChi + 2.30) {
       nKeep = result.size() - i;
       break;
     }
@@ -438,6 +447,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 1) {
   hstandardinsitu->Write();
   hinsitu3->Write();
   hstandardinsitu3->Write();
+  hchisq->Write();
+  hchisq2d->Write();
 
   TTree * wt = new TTree("T","tree");
   wt->Branch("chisq", &minchisq, "chisq/F");

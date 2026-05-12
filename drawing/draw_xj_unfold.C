@@ -112,7 +112,7 @@ void draw_simple() {
   int itype = 1; // 1: photon sample, 2: jet sample
   int isample = -1; // -1: all, 0: photon5, 1: photon10, etc.
   const char * ir = "1";
-  const char * half = "_half";
+  const char * half = "";
   TH1D * ht_full = d.get(Form("htruthxj%s%s" , half, ir), itype,isample);
   TH1D * hr_full = d.get(Form("hrecoxj%s%s"  , half, ir), itype,isample);
   TH1D * hu_full = d.get(Form("hunfoldxj%s%s", half, ir), itype,isample);
@@ -196,7 +196,7 @@ void draw_xj_unfold() {
 
 
   int itype = 1; // 1: photon sample, 2: jet sample
-  int isample = -1; // -1: all, 0: photon5, 1: photon10, etc.
+  int isample = 1; // -1: all, 0: photon5, 1: photon10, etc.
   const char * ir = "1";
   const char * half = "";
   int nbins = ana::nPtBins*ana::nUnfoldBins;
@@ -218,7 +218,7 @@ void draw_xj_unfold() {
   }
   // Unfold
   RooUnfoldResponse * response = new RooUnfoldResponse(hmc_reco_full,hmc_truth_full,hresponse);
-  RooUnfoldBayes unfold(response, hdata_full, 4, 0, 1);
+  RooUnfoldBayes unfold(response, hdata_full, 4, 0, 1); // four iterations
   TH1D * hdata_unfold_full = (TH1D*)unfold.Hreco();
   
   // split up flattened 2D hists

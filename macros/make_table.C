@@ -83,9 +83,9 @@ void make_table() {
     TF1 * f3 = new TF1(Form("f3%i",i),"pol0",30,70);
     hrat3->Fit(f3,"RQIM0");
     cout << std::left
-     << std::setw(10) << rname << " | "
-     << f->GetParameter(0) << " $\\pm$ " << f->GetParError(0) << " | "
-     << f3->GetParameter(0) << " $\\pm$ " << f3->GetParError(0) 
+     << std::fixed << std::setprecision(1) << std::setw(10) << ana::JetRs[i] << " & "
+     << std::setprecision(4) << f->GetParameter(0) << " $\\pm$ " << f->GetParError(0)// << " & "
+     //<< f3->GetParameter(0) << " $\\pm$ " << f3->GetParError(0) 
      << endl;
     
 

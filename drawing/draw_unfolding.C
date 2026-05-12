@@ -16,7 +16,7 @@ void draw_unfolding() {
   gPad->SetLogy();
   gPad->SetTicks(1,1);
   int itype = 1; // 1: photon sample, 2: jet sample
-  int isample = -1; // -1: all, 0: photon5, 1: photon10, etc.
+  int isample = 1; // -1: all, 0: photon5, 1: photon10, etc.
   const char * obj = "jet";
   const char * ir = "1";
   const char * half = "";

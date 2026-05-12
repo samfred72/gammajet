@@ -162,7 +162,7 @@ class unfolder : public treeuser {
     TH2D * hphoresponse_half[ana::nJetR];
     
    
-    int nbins = ana::nPtBins * ana::nUnfoldBins; 
+    int nbins = (ana::nPtBins) * ana::nUnfoldBins; // +2 bins per pT bin for overflow and underflow
     RooUnfoldResponse * jet_response2D[ana::nJetR];
     RooUnfoldResponse * jet_response_half2D[ana::nJetR];
     
