@@ -40,21 +40,33 @@ class histmaker : public treeuser {
 
       cout << "initializing hists..." << endl;
       for (int i = 0; i < ana::nPtBins; i++) {
+        h1_forjin[i] = new TH1D(Form("h1_%i",i),";x_{J};normalized counts",25,0,2);
+        h2_forjin[i] = new TH1D(Form("h2_%i",i),";x_{J};normalized counts",25,0,2);
+        
         for (int j = 0; j < ana::nJetR; j++) {
           for (int k = 0; k < ana::nCalibBins; k++) {
             for (int l = 0; l < ana::nIsoBdtBins; l++) {
               for (int m = 0; m < ana::n3jetBins; m++) {
                 for (int n = 0; n < 4; n++) {
-                  hratio[i][j][k][l][m][n] = new TH1D(Form("hratio_%i_%i_%i_%i_%i_%i",i,j,k,l,m,n),";p_{T}^{jet}/p_{T}^{#gamma};normalized counts",100,0,2);
+                  hratio[i][j][k][l][m][n] = new TH1D(Form("hratio_%i_%i_%i_%i_%i_%i",i,j,k,l,m,n),";p_{T}^{jet}/p_{T}^{#gamma};normalized counts",25,0,2);
                 }
               }
             }
+          }
+          for (int k = 0; k < ana::nEmfracBins; k++) {
+            hratio_emfrac[i][j][k] = new TH1D(Form("hratio_emfrac_%i_%i_%i",i,j,k),";p_{T}^{jet}/p_{T}^{#gamma};normalized counts",25,0,2);
           }
         }
         hisobdt[i] = new TH2D(Form("hisobdt%i",i),";cluster iso;bdt score",100,-1,20,100,0,1);
       }
       for (int i = 0; i < ana::nJetR; i++) {
         hjetpt[i] =            new TH1D(Form("hjetpt%i",i),";jet p_{T,max};counts",100,0,100);
+        
+        for (int j = 0; j < 2; j++) {
+          for (int k = 0; k < 2; k++) {
+            hjetpt_formarzia[i][j][k] = new TH1D(Form("hjetpt_formarzia%i_%i_%i",i,j,k),";jet p_{T,max};counts",100,0,100);
+          }
+        }
         htruthjetpt[i] =       new TH1D(Form("htruthjetpt%i",i),";jet p_{T,max};counts",100,0,100);
         htruthjetptspec[i] =   new TH1D(Form("htruthjetptspec%i",i),";jet p_{T,max};counts",100,0,100);
         htruthjetptanti[i] =   new TH1D(Form("htruthjetptanti%i",i),";jet p_{T,max};counts",100,0,100);
@@ -140,7 +152,12 @@ class histmaker : public treeuser {
     void end();
     bool loop(jet_object jet, int jindex, pho_object pho, int icalib, float weight = 1);
     void make_hists();
-    float reweight(float pt, float vz) { return reweight_func_pt->Eval(pt)*reweight_hist_vz->GetBinContent(reweight_hist_vz->FindBin(vz)); }
+    float reweight(float pt, float vz, float emfrac) { 
+      float ptval = reweight_func_pt->Eval(pt);
+      float vzval = reweight_hist_vz->GetBinContent(reweight_hist_vz->FindBin(vz));
+      float emval = 1;//reweight_hist_em->GetBinContent(reweight_hist_em->FindBin(emfrac));
+      return ptval*vzval*emval;
+    }
     
     template <typename T>
       float findmaxpt(const vector<T>& objs)
@@ -158,6 +175,7 @@ class histmaker : public treeuser {
     TFile * reweight_file = TFile::Open("/home/samson72/sphnx/gammajet/hists/reweighting.root");
     TF1 * reweight_func_pt = (TF1*)reweight_file->Get("pfunc");
     TH1D * reweight_hist_vz = (TH1D*)reweight_file->Get("hvz_reweight");
+    TH1D * reweight_hist_em = (TH1D*)reweight_file->Get("hreweight_emfrac");
     
     
     TRandom3 * rand = new TRandom3();
@@ -198,7 +216,8 @@ class histmaker : public treeuser {
     float outtree_weight_JERlow[ana::nJetR];
 
     // Define histograms
-    TH1D * hratio     [ana::nPtBins][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][4]; // 4 accounts for a,b,c,d regions, 2 is for noncalib vs calib jets
+    TH1D * hratio        [ana::nPtBins][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][4]; // 4 accounts for a,b,c,d regions, 2 is for noncalib vs calib jets
+    TH1D * hratio_emfrac [ana::nPtBins][ana::nJetR][ana::nEmfracBins];
 
     TH2D * hisobdt        [ana::nPtBins];
 
@@ -217,6 +236,7 @@ class histmaker : public treeuser {
     TH1D * hmtminusjt           [ana::nJetR];
     TH1D * hctminusjt           [ana::nJetR];
     TH1D * hiso                 [ana::nJetR];
+    TH1D * hjetpt_formarzia     [ana::nJetR][2][2]; // the first 2 is for the dphi or purity cuts, the second 2 is for before and after the cuts
     TH1D * hjetpt               [ana::nJetR];
     TH1D * htruthjetpt          [ana::nJetR];
     TH1D * htruthjetptspec      [ana::nJetR];
@@ -255,6 +275,10 @@ class histmaker : public treeuser {
     TH2D * hmjt = new TH2D("hmjt",";mbd time [ns]; jet time [ns]",100,-10,10,100,-10,10);
     TH2D * hcjt = new TH2D("hcjt",";cluster time [ns]; jet time [ns]",100,-10,10,100,-10,10);
     TH1D * hratiosingle = new TH1D("hratiosingle",";x_{J#gamma};counts",100,0,2); 
+  
+    TH1D * h1_forjin[ana::nPtBins] ;
+    TH1D * h2_forjin[ana::nPtBins] ;
+  
 
     TFile * cluster_smear_file;
     TF1 * cluster_position_smear_func; 

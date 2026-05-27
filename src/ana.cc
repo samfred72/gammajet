@@ -69,6 +69,39 @@ Int_t ana::findUnfoldBin(double xj, double pt)
   if (ixj < 0) return -1;
   return ipt*nUnfoldBins + ixj;
 }
+Int_t ana::findabcdBin(double iso, double bdt, float pt, int bin)
+{
+  int isiso;
+  int isbdt;
+  if (iso < isoBins[bin]) {
+    isiso = 1;
+  }
+  else if (iso > isoBinsHigh[bin]) {
+    isiso = 0;
+  }
+  else {
+    isiso = -1;
+  }
+  if (bdt > bdtGoodLow[bin] - 0.00156 * pt && bdt < bdtGoodHigh[bin]) {
+    isbdt = 1;
+  }
+  else if (bdt > bdtBadLow[bin] && bdt < bdtBadHigh[bin]) {
+    isbdt = 0;
+  }
+  else {
+    isbdt = -1;
+  }
+
+  if (isiso == -1 || isbdt == -1) {
+    return -1;
+  }
+  else {
+    bool b_isiso = isiso;
+    bool b_isbdt = isbdt;
+    int iabcd = (((b_isiso << 0b1) | b_isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    return iabcd;
+  }
+}
 
 Int_t ana::findabcdBin(double iso, double bdt, int bin)
 {
@@ -140,6 +173,16 @@ Int_t ana::findHadronBin(double value) {
   for (int i = 0; i < nHadronBins; i++) {
     float binlow = hadronBins[i][0];
     float binhigh = hadronBins[i][1];
+    if (value > binlow && value < binhigh) {
+      return i;
+    }
+  }
+  return -1;
+}
+Int_t ana::findEmfracBin(double value) {
+  for (int i = 0; i < nEmfracBins; i++) {
+    float binlow = emfracBins[i];
+    float binhigh = emfracBins[i+1];
     if (value > binlow && value < binhigh) {
       return i;
     }

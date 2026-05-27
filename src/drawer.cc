@@ -43,6 +43,7 @@ void drawer::drawAll(vector<string> samples, vector<string> features, float draw
 void drawer::format(TH1D * h, int type) {
   int colors[4] = {kBlue, kMagenta+1, kSpring-1, kGray+3};
   h->SetLineColor(colors[type]);
+  h->SetMarkerColor(colors[type]);
   scale(h,0,2);
   h->GetYaxis()->SetRangeUser(0,h->GetMaximum()*1.5);
   if (type == 0) h->SetLineWidth(2);
@@ -83,18 +84,19 @@ TH1D * drawer::combineMC(const char * histname, bool isphoton) {
   vector<TFile*> files = (isphoton ? pfiles : jfiles);
   int nfiles = (isphoton ? npfiles : njfiles);
   vector<int> samples = (isphoton ? psamples : jsamples);
+  int istart = (isphoton ? 0 : 1);
   
-  for (int ifile = 0; ifile < nfiles; ifile++) {
+  for (int ifile = istart; ifile < nfiles; ifile++) {
     hists.push_back((TH1D*)files[ifile]->Get(histname));
-    hists[ifile]->SetName(Form("%s_%i_%i",histname,ifile,isphoton));
+    hists[ifile-istart]->SetName(Form("%s_%i_%i",histname,ifile,isphoton));
   }
 
-  TH1D * thehist = (TH1D*)hists.at(0)->Clone();
+  TH1D * thehist = (TH1D*)hists.at(1)->Clone();
   thehist->Reset("ICES");
-  for (unsigned i = 0; i < hists.size(); i++) {
-    hists[i]->Scale(scalemap[isphoton][samples.at(i)]);
-    thehist->Add(hists[i]);
-    delete hists[i];
+  for (unsigned i = istart; i < hists.size(); i++) {
+    hists[i-istart]->Scale(scalemap[isphoton][samples.at(i)]);
+    thehist->Add(hists[i-istart]);
+    delete hists[i-istart];
   }
   return thehist;
 }
@@ -141,7 +143,7 @@ TH1D * drawer::get(const char * histname, int type, int ihist) {
       return (TH1D*)pfiles[ihist]->Get(histname);
     }
     else if (type == 2) {
-      return (TH1D*)dfiles[ihist]->Get(histname);
+      return (TH1D*)jfiles[ihist]->Get(histname);
     }
     else {
       return nullptr;
@@ -235,7 +237,7 @@ vector<vector<vector<vector<vector<vector<TH1D*>>>>>> drawer::collect_hists(cons
   vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hists = get_empty_TH1D();
 
   bool isphoton = type == 1;
-  int nrebin = 4;
+  int nrebin = 1;
   int njrebin = 1;
   int nprebin = 1;
   int mcrebin = (isphoton ? nprebin : njrebin);

@@ -2,7 +2,7 @@
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 void draw_timing() {
   drawer d;
-  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/histsData.root");
+  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/hists_Data.root");
   TH1D * h[ana::nJetR];
   for (int ir = 0; ir < ana::nJetR; ir++) {
     h[ir] = (TH1D*)f->Get(Form("hctminusjt%i",ir));

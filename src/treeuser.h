@@ -112,7 +112,9 @@ class treeuser {
 
     Float_t         jet_pt[nJetR];
     Float_t         jet_pt_calib[nJetR];
+    Float_t         jet_pt_recalib[nJetR];
     Float_t         jet_pt_smear[nJetR];
+    Float_t         jet_pt_smear_reco[nJetR];
     Float_t         jet_pt_smear_high[nJetR];
     Float_t         jet_pt_smear_low[nJetR];
     Float_t         jet_e[nJetR];
@@ -157,7 +159,9 @@ class treeuser {
 
     TBranch        *b_jet_pt;                           //!
     TBranch        *b_jet_pt_calib;                           //!
+    TBranch        *b_jet_pt_recalib;                           //!
     TBranch        *b_jet_pt_smear;                           //!
+    TBranch        *b_jet_pt_smear_reco;                           //!
     TBranch        *b_jet_pt_smear_high;                           //!
     TBranch        *b_jet_pt_smear_low;                           //!
     TBranch        *b_jet_e;                           //!

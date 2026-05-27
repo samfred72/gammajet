@@ -1,26 +1,6 @@
 #include "/home/samson72/sphnx/gammajet/src/drawer.h"
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
-//drawer d("herwig");
-const char * histname = "hratio";
-drawer d("pythia");
-vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hratiod = d.collect_hists(histname,0);
-vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hratiop = d.collect_hists(histname,1);
-vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hratioj = /*d.get_empty_TH1D();// */d.collect_hists(histname,2);
-drawer dh("herwig");
-vector<vector<vector<vector<vector<vector<TH1D*>>>>>> hratioh = dh.collect_hists(histname,1);
 
-vector<vector<vector<vector<vector<vector<TF1*>>>>>> fitd   = d.get_empty_TF1();
-vector<vector<vector<vector<vector<vector<TF1*>>>>>> fitp   = d.get_empty_TF1(); 
-vector<vector<vector<vector<vector<vector<TF1*>>>>>> fitj   = d.get_empty_TF1();
-vector<vector<vector<vector<vector<vector<TF1*>>>>>> fith   = d.get_empty_TF1();
-vector<vector<vector<vector<vector<vector<float>>>>>> meand = d.get_empty_float();
-vector<vector<vector<vector<vector<vector<float>>>>>> meanp = d.get_empty_float(); 
-vector<vector<vector<vector<vector<vector<float>>>>>> meanj = d.get_empty_float();
-vector<vector<vector<vector<vector<vector<float>>>>>> meanh = d.get_empty_float();
-vector<vector<vector<vector<vector<vector<float>>>>>> merrd = d.get_empty_float();
-vector<vector<vector<vector<vector<vector<float>>>>>> merrp = d.get_empty_float(); 
-vector<vector<vector<vector<vector<vector<float>>>>>> merrj = d.get_empty_float();
-vector<vector<vector<vector<vector<vector<float>>>>>> merrh = d.get_empty_float();
 float xjm[ana::nJetR];
 float xjme[ana::nJetR];
 float xjmeb[ana::nJetR];
@@ -38,282 +18,172 @@ float xjfeh[ana::nJetR];
 float xjfeJH[ana::nJetR];
 float xjfeJL[ana::nJetR];
 
-
-void draw_wall(TCanvas * c, int iabcd, int k) {
-
-  float drawx = 0.80;
-  float drawy = 0.92;
-  float fontsize = 60;
-  int offset = 0;
-  string calibstring = (k ? "JES Calibrated" : "Uncalibrated Jets");
-  vector<string> t1 = {"#bf{Analysis region A}:","#bf{Analysis region B}:","#bf{Analysis region C}:","#bf{Analysis region D}:", "Combined ABCD"};
-
-  TPad * p = new TPad("p","",0,0,1,1);
-  p->SetLeftMargin(0.25);
-  p->SetBottomMargin(0.25);
-  p->Divide(ana::nJetR+1,ana::nPtBins,0,0);
-  p->Draw();
-
-  for (int i = 0; i < ana::nPtBins; i++) {
-    for (int j = 0; j < ana::nJetR; j++) {
-      TH1D * h1 = hratiod[i][j][k][0][0][iabcd];
-      TH1D * h2 = hratiop[i][j][k][0][0][iabcd];
-      TH1D * h3 = hratioj[i][j][k][0][0][iabcd];
-
-      int index = i*ana::nJetR + j + 1 + offset;
-      if (index % (ana::nJetR+1) == 0) {index++; offset++;}
-      p->cd(index);
-      if ((index + 1) % (ana::nJetR+1) == 0) gPad->SetRightMargin(0.01);
-      gPad->SetTicks(1,1);
-      if (index == (ana::nPtBins*(ana::nJetR+1) - 1)) h1->GetXaxis()->SetTitle("p_{T,max}^{Jet}/p_{T,max}^{cluster}");
-      else h1->GetXaxis()->SetTitle("");
-      h1->GetXaxis()->SetTitleSize(0.10);
-      h1->GetXaxis()->SetLabelSize(0.08);
-      if (index == (ana::nJetR+1)*(ana::nPtBins-1)+1) h1->GetXaxis()->SetLabelSize(0.07);
-      h1->GetXaxis()->SetNdivisions(405,false);
-      h1->GetXaxis()->ChangeLabel(-1,-1,0);
-      if (index == 1) h1->GetYaxis()->SetTitle("Arbitrary Units");
-      else h1->GetYaxis()->SetTitle("");
-      h1->GetYaxis()->SetTitleSize(0.10);
-      h1->GetYaxis()->SetLabelSize(0.08);
-      if (index == (ana::nJetR+1)*(ana::nPtBins-1)+1) h1->GetYaxis()->SetLabelSize(0.07);
-      h1->GetYaxis()->SetLabelOffset(0.04);
-      h1->GetYaxis()->SetMaxDigits(3);
-      h1->GetYaxis()->SetDecimals(2);
-      
-      h1->Draw("hist same");
-      h2->Draw("hist same");
-      //h3->Draw("hist same");
-     
-      if (iabcd == 0 || iabcd == 4) {
-        //fitd[i][j][k][0][0][iabcd]->Draw("same");
-        //fitp[i][j][k][0][0][iabcd]->Draw("same");
-        //fitj[i][j][k][0][0][iabcd]->Draw("same");
+struct xjgroup {
+  vector<vector<TH1D*>> hists =     vector<vector<TH1D*>>(ana::nPtBins, vector<TH1D*>(ana::nJetR));
+  vector<vector<float>> histmeans = vector<vector<float>>(ana::nPtBins, vector<float>(ana::nJetR));
+  vector<vector<float>> histerrs =  vector<vector<float>>(ana::nPtBins, vector<float>(ana::nJetR));
+  vector<vector<TF1*>> fits =       vector<vector<TF1*>> (ana::nPtBins, vector<TF1*> (ana::nJetR));
+  vector<vector<float>> fitmeans =  vector<vector<float>>(ana::nPtBins, vector<float>(ana::nJetR));
+  vector<vector<float>> fiterrs =   vector<vector<float>>(ana::nPtBins, vector<float>(ana::nJetR));
+  
+  void clear() {
+    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+      for (int ir = 0; ir < ana::nJetR; ir++) {
+        delete hists[ipt][ir];
+        delete fits[ipt][ir];
       }
-
-      float lowcluster = ana::ptBins[i];
-      float highcluster = ana::ptBins[i+1];
-      float minjet = (k ? ana::jet_calib_pt_cut[j] : ana::jet_pt_cut[j]);
-      float drawx = 0.15;
-      if ((index - 1) % 5 == 0) drawx = 0.35;
-      d.drawMany({
-          Form("%.0f GeV < p_{T}^{#gamma} < %.0f GeV",lowcluster,highcluster),
-          Form("Jet R=%1.1f",ana::JetRs[j])},
-          drawx,0.85,42,c->GetWh());
-      TLine * line = new TLine(minjet/lowcluster,0,minjet/lowcluster,1);
-      line->SetLineStyle(8);
-      line->Draw();
     }
   }
-  p->cd();
-  d.drawAll({
-      "run 47289-53864",
-      //"MC run28 Jet",
-      "MC run28 Photon"},
-      {
-      Form("|vz| < %.0f cm",ana::vzcut),
-      Form("|#eta|_{jet} < %.1f - R",ana::etacut),
-      Form("|#eta|_{cluster} < %.1f",ana::etacut),
-      Form("#Delta#phi > %.0f#pi/%.0f",ana::oppnum,ana::oppden),
-      Form("calibrated jet p_{T} > %.0f GeV",(k == 1 ? ana::jet_calib_pt_cut[0] : ana::jet_pt_cut[0])),
-      Form("|#DeltaT|_{jet,cluster} < %.0f",ana::tcut),
-      calibstring,
-      t1[iabcd].c_str()},
-      drawx,drawy,fontsize,c->GetWh());
-  TLegend * l2 = new TLegend(drawx,drawy-.7,0.99,drawy-.55);
-  l2->SetLineWidth(0);
-  l2->AddEntry(hratiod[0][0][0][0][0][iabcd],("data"));
-  l2->AddEntry(hratiop[0][0][0][0][0][iabcd],("MC Photon reco"));
-  //l2->AddEntry(hratioj[0][0][l][ia],("MC Jet reco"));
-  l2->Draw();
-  return;
+};
+
+
+struct xjgroup get_hists(int itype, int icalib, int iib, int i3jet, int iabcd, const char * sim = "pythia") {
+  drawer d(sim);
+  const char * histname = "hratio";
+  struct xjgroup group;
+  for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+    for (int ir = 0; ir < ana::nJetR; ir++) {
+      TH1D * hist = d.get(Form("%s_%i_%i_%i_%i_%i_%i",histname, ipt, ir, icalib, iib, i3jet, iabcd), itype);
+      float mean = hist->GetMean();
+      float meanerr = hist->GetMeanError();
+
+      TF1 * func = d.fit(hist, 0, 2, "RMQI0");
+      float funcmean = func->GetParameter(1);
+      float funcerr = func->GetParError(1);
+              
+      if (strcmp(sim,"herwig") == 0) itype += 2; 
+      d.format(hist,itype);
+      d.format(func,itype);
+
+      group.hists     [ipt][ir] = hist;
+      group.histmeans [ipt][ir] = mean;
+      group.histerrs  [ipt][ir] = meanerr;
+      group.fits      [ipt][ir] = func;
+      group.fitmeans  [ipt][ir] = funcmean;
+      group.fiterrs   [ipt][ir] = funcerr;
+
+    }
+  }
+  return group;
 }
 
-void draw_many(TCanvas * c, const char * cname, const char * info1, const char * info2, const char * variation,
-    int type1, int ir1, int icalib1, int ibdt1, int i3jet1, int iabcd1,
-    int type2, int ir2, int icalib2, int ibdt2, int i3jet2, int iabcd2) {
-  c->cd();
-  vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H1;          
-  vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H2;          
-  vector<vector<vector<vector<vector<vector<TF1*>>>>>> f1;
-  vector<vector<vector<vector<vector<vector<TF1*>>>>>> f2; 
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean2;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr2;
-  if (type1 == 0) {
-    H1 = hratiod;
-    f1 = fitd;
-    mean1 = meand;
-    merr1 = merrd;
-  }
-  else if (type1 == 1) {
-    H1 = hratiop;
-    f1 = fitp;
-    mean1 = meanp;
-    merr1 = merrp;
-  }
-  else if (type1 == 2) {
-    H1 = hratioj;
-    f1 = fitj;
-    mean1 = meanj;
-    merr1 = merrj;
-  }
-  else if (type1 == 3) {
-    H1 = hratioh;
-    f1 = fith;
-    mean1 = meanh;
-    merr1 = merrh;
-  }
-  if (type2 == 0) {
-    H2 = hratiod;
-    f2 = fitd;
-    mean2 = meand;
-    merr2 = merrd;
-  }
-  else if (type2 == 1) {
-    H2 = hratiop;
-    f2 = fitp;
-    mean2 = meanp;
-    merr2 = merrp;
-  }
-  else if (type2 == 2) {
-    cout << "yo" << endl;
-    H2 = hratioj;
-    f2 = fitj;
-    mean2 = meanj;
-    merr2 = merrj;
-  }
-  else if (type2 == 3) {
-    H2 = hratioh;
-    f2 = fith;
-    mean2 = meanh;
-    merr2 = merrh;
-  }
-
+void draw_many(const char * cname, const char * info1, const char * info2, const char * variation,
+    struct xjgroup g1, 
+    struct xjgroup g2) {
+  drawer d;
+  int csize = 700;
+  TCanvas * c = new TCanvas("c","",csize*4,csize*3);
+  c->SaveAs(Form("%s[",cname));
 
   float drawx = 0.77;
   float drawy = 0.92;
   float fontsize = 50;
-  int offset = 0;
-  int ir = 1;
-  string calibstring = (icalib1 ? "JES Calibrated" : "Uncalibrated Jets");
-  vector<string> t1 = {"#bf{Analysis region A}","#bf{Analysis region B}","#bf{Analysis region C}","#bf{Analysis region D}", "Combined ABCD"};
 
-  TPad * p = new TPad("p","",0,0,1,1);
-  p->SetLeftMargin(0.25);
-  p->SetBottomMargin(0.25);
-  p->Divide(4,3,0,0);
-  p->Draw();
   int nx = 3;
   int ny = 3;
 
 
-  for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-    cout << ipt << endl;
-    TH1D * h1 = H1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1];
-    TH1D * h2 = H2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2];
-    h1->GetYaxis()->SetRangeUser(0,0.22);
+  for (int ir = 0; ir < ana::nJetR; ir++) {
+    int offset = 0;
+    TPad * p = new TPad("p","",0,0,1,1);
+    p->SetLeftMargin(0.25);
+    p->SetBottomMargin(0.25);
+    p->Divide(4,3,0,0);
+    p->Draw();
+    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+      TH1D * h1 = g1.hists[ipt][ir];
+      TH1D * h2 = g2.hists[ipt][ir];
+      h1->GetYaxis()->SetRangeUser(0,0.22);
 
-    int index = ipt + 1 + offset;
-    if (index % (nx+1) == 0) {index++; offset++;}
-    p->cd(index);
-    gPad->SetRightMargin(0.01);
-    gPad->SetTicks(1,1);
-    if ((ipt) < nx*(ny-1)) gPad->SetBottomMargin(0.04);
-    gPad->SetTopMargin(0.01);
-    if ((ipt) % nx != 0) gPad->SetLeftMargin(0.05);
-    if (index == (ny*(nx+1) - 1)) h1->GetXaxis()->SetTitle("x_{J#gamma}"); // bottom right plot
-    else h1->GetXaxis()->SetTitle("");
-    h1->GetXaxis()->SetTitleSize(0.10);
-    h1->GetXaxis()->SetLabelSize(0.08);
-    if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
-    if (ipt < nx*(ny-1) ) h1->GetXaxis()->SetLabelSize(0.00);
-    h1->GetYaxis()->ChangeLabel(-1,-1,0);
-    if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
-    if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
-    else h1->GetYaxis()->SetTitle("");
-    h1->GetYaxis()->SetTitleSize(0.10);
-    h1->GetYaxis()->SetLabelSize(0.08);
-    if (ipt % nx != 0 ) h1->GetYaxis()->SetLabelSize(0.00);
-    if (ipt == nx*(ny-1)) h1->GetYaxis()->SetLabelSize(0.06); // bottom left plot
-    h1->GetYaxis()->SetLabelOffset(0.04);
-    h1->GetYaxis()->SetMaxDigits(3);
-    h1->GetYaxis()->SetDecimals(2);
+      int index = ipt + 1 + offset;
+      if (index % (nx+1) == 0) {index++; offset++;}
+      p->cd(index);
+      gPad->SetRightMargin(0.01);
+      gPad->SetTicks(1,1);
+      if ((ipt) < nx*(ny-1)) gPad->SetBottomMargin(0.04);
+      gPad->SetTopMargin(0.01);
+      if ((ipt) % nx != 0) gPad->SetLeftMargin(0.05);
+      if (index == (ny*(nx+1) - 1)) h1->GetXaxis()->SetTitle("x_{J#gamma}"); // bottom right plot
+      else h1->GetXaxis()->SetTitle("");
+      h1->GetXaxis()->SetTitleSize(0.10);
+      h1->GetXaxis()->SetLabelSize(0.08);
+      if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
+      if (ipt < nx*(ny-1) ) h1->GetXaxis()->SetLabelSize(0.00);
+      h1->GetYaxis()->ChangeLabel(-1,-1,0);
+      if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
+      if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
+      else h1->GetYaxis()->SetTitle("");
+      h1->GetYaxis()->SetTitleSize(0.10);
+      h1->GetYaxis()->SetLabelSize(0.08);
+      if (ipt % nx != 0 ) h1->GetYaxis()->SetLabelSize(0.00);
+      if (ipt == nx*(ny-1)) h1->GetYaxis()->SetLabelSize(0.06); // bottom left plot
+      h1->GetYaxis()->SetLabelOffset(0.04);
+      h1->GetYaxis()->SetMaxDigits(3);
+      h1->GetYaxis()->SetDecimals(2);
 
-    h1->Draw("hist same");
-    h2->Draw("hist same");
+      h1->Draw("hist same");
+      h2->Draw("hist same");
 
-    if (iabcd1 == 0 || iabcd1 == 4) {
-      //f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->Draw("same");
+      float lowcluster = ana::ptBins[ipt];
+      float highcluster = ana::ptBins[ipt+1];
+      float drawx = 0.15;
+      float drawy_temp = 0.88;
+      if ((index - 1) % 4 == 0) drawx = 0.35;
+      if (ipt < 2*nx) drawy_temp = 0.83;
+      d.drawMany({
+          Form("#bf{%.0f GeV < p_{T}^{lead} < %.0f GeV}",ana::ptBins[ipt],ana::ptBins[ipt+1]),
+          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  g1.histmeans[ipt][ir], g1.histerrs[ipt][ir]),
+          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  g2.histmeans[ipt][ir], g2.histerrs[ipt][ir])
+          },drawx,drawy_temp,42,c->GetWh()/3.0);
+      TLine * mline1 = new TLine(g1.histmeans[ipt][ir],0,g1.histmeans[ipt][ir],0.15);
+      mline1->SetLineColor(h1->GetLineColor());
+      mline1->SetLineStyle(8);
+      TLine * mline2 = new TLine(g2.histmeans[ipt][ir],0,g2.histmeans[ipt][ir],0.15);
+      mline2->SetLineColor(h2->GetLineColor());
+      mline2->SetLineStyle(7);
+      mline1->Draw();
+      mline2->Draw();
+      //float err = TMath::Sqrt(merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]*merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]+merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]*merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]);
+      //cout << ana::ptBins[ipt] << "-" << ana::ptBins[ipt+1] << std::fixed << std::setprecision(3) << " \\GeV & " 
+      //  << mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1] << " $\\pm$ " << merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1] << " \\GeV & " 
+      //  << mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " $\\pm$ " << merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " \\GeV & "
+      //  << mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]/mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " $\\pm$ " << err << " \\\\ " << std::defaultfloat << endl;
     }
-    if (iabcd2 == 0 || iabcd2 == 4) {
-      //f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->Draw("same");
-    }
-
-    float lowcluster = ana::ptBins[ipt];
-    float highcluster = ana::ptBins[ipt+1];
-    float minjet = (icalib1 ? ana::jet_calib_pt_cut[ir1] : ana::jet_pt_cut[ir1]);
-    float drawx = 0.15;
-    float drawy_temp = 0.88;
-    if ((index - 1) % 4 == 0) drawx = 0.35;
-    if (ipt < 2*nx) drawy_temp = 0.83;
-    d.drawMany({
-        Form("#bf{%.0f GeV < p_{T}^{lead} < %.0f GeV}",ana::ptBins[ipt],ana::ptBins[ipt+1]),
-        //Form("#bf{p_{T}^{#gamma} [%.0f, %.0f] GeV}",lowcluster,highcluster),
-        //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParameter(1),f1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]->GetParError(1)),
-        //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParameter(1),f2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]->GetParError(1))
-        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1],merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]),
-        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2],merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2])
-        },drawx,drawy_temp,42,c->GetWh()/3.0);
-    TLine * line = new TLine(minjet/lowcluster,0,minjet/lowcluster,0.15);
-    line->SetLineStyle(8);
-    line->Draw();
-    TLine * mline1 = new TLine(mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1],0,mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1],0.15);
-    mline1->SetLineColor(h1->GetLineColor());
+    p->cd();
+    if (strcmp(variation, "Nominal") == 0) variation = "";
+    d.drawAll({
+        //info1, 
+        //info2,
+        },
+        {
+        //"Analysis cuts",
+        Form("Jet R=%1.1f",ana::JetRs[ir]),
+        //variation,
+        //calibstring,
+        //t1[iabcd1].c_str()
+        },
+        drawx,drawy,fontsize,c->GetWh());
+    TLine * mline1 = new TLine(0,0,1,1);
+    mline1->SetLineColor(g1.hists[0][0]->GetLineColor());
     mline1->SetLineStyle(8);
-    TLine * mline2 = new TLine(mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2],0,mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2],0.15);
-    mline2->SetLineColor(h2->GetLineColor());
+    TLine * mline2 = new TLine(0,0,1,1);
+    mline2->SetLineColor(g2.hists[0][0]->GetLineColor());
     mline2->SetLineStyle(7);
-    mline1->Draw();
-    mline2->Draw();
-    float err = TMath::Sqrt(merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]*merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]+merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]*merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2]);
-    cout << ana::ptBins[ipt] << "-" << ana::ptBins[ipt+1] << std::fixed << std::setprecision(3) << " \\GeV & " 
-      << mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1] << " $\\pm$ " << merr1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1] << " \\GeV & " 
-      << mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " $\\pm$ " << merr2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " \\GeV & "
-      << mean1[ipt][ir1][icalib1][ibdt1][i3jet1][iabcd1]/mean2[ipt][ir2][icalib2][ibdt2][i3jet2][iabcd2] << " $\\pm$ " << err << " \\\\ " << std::defaultfloat << endl;
+    TLegend * l2 = new TLegend(drawx,drawy-.2,0.99,drawy-.05);
+    l2->SetLineWidth(0);
+    l2->AddEntry(g1.hists[0][ir],info1);
+    l2->AddEntry(g2.hists[0][ir],info2);
+    l2->AddEntry(mline1,Form("Mean %s",info1),"l");
+    l2->AddEntry(mline2,Form("Mean %s",info2),"l");
+    l2->Draw();
+    c->SaveAs(cname);
+    c->Clear();
   }
-  p->cd();
-  if (strcmp(variation, "Nominal") == 0) variation = "";
-  d.drawAll({
-      //info1, 
-      //info2,
-      },
-      {
-      //"Analysis cuts",
-      Form("Jet R=%1.1f",ana::JetRs[ir1]),
-      //variation,
-      //calibstring,
-      //t1[iabcd1].c_str()
-      },
-      drawx,drawy,fontsize,c->GetWh());
-  TLine * mline1 = new TLine(0,0,1,1);
-  mline1->SetLineColor(H1[0][0][3][0][0][0]->GetLineColor());
-  mline1->SetLineStyle(8);
-  TLine * mline2 = new TLine(0,0,1,1);
-  mline2->SetLineColor(H2[0][0][3][0][0][0]->GetLineColor());
-  mline2->SetLineStyle(7);
-  TLegend * l2 = new TLegend(drawx,drawy-.2,0.99,drawy-.05);
-  l2->SetLineWidth(0);
-  l2->AddEntry(H1[0][ir1][icalib1][ibdt1][i3jet1][iabcd1],info1);
-  l2->AddEntry(H2[0][ir2][icalib2][ibdt2][i3jet2][iabcd2],info2);
-  l2->AddEntry(mline1,Form("Mean %s",info1),"l");
-  l2->AddEntry(mline2,Form("Mean %s",info2),"l");
-  l2->Draw();
-  c->SaveAs(cname);
+  c->SaveAs(Form("%s]",cname));
   return;
 }
 
+/*
 void draw_one(TCanvas * c, const char * cname, const char * info1, const char * info2,
     vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H1,          
     vector<vector<vector<vector<vector<vector<TH1D*>>>>>> H2,          
@@ -407,73 +277,15 @@ void draw_one(TCanvas * c, const char * cname, const char * info1, const char * 
   return;
 }
 
-
-void comp_axj(TCanvas * c, const char * cname, const char * info, bool usefit,
-              int type1, int icalib1, int ibdt1, int i3jet1, int iabcd1, string info1, int color1, 
-              int type2, int icalib2, int ibdt2, int i3jet2, int iabcd2, string info2, int color2) {
-  c->cd();
-  vector<vector<vector<vector<vector<vector<TH1D *>>>>>> H1;
-  vector<vector<vector<vector<vector<vector<TH1D *>>>>>> H2; 
-  vector<vector<vector<vector<vector<vector<TF1 *>>>>>> f1;
-  vector<vector<vector<vector<vector<vector<TF1 *>>>>>> f2; 
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean2;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr2;
-  if (type1 == 0) {
-    H1 = hratiod;
-    f1 = fitd;
-    mean1 = meand;
-    merr1 = merrd;
-  }
-  else if (type1 == 1) {
-    H1 = hratiop;
-    f1 = fitp;
-    mean1 = meanp;
-    merr1 = merrp;
-  }
-  else if (type1 == 2) {
-    H1 = hratioj;
-    f1 = fitj;
-    mean1 = meanj;
-    merr1 = merrj;
-  }
-  else if (type1 == 3) {
-    H1 = hratioh;
-    f1 = fith;
-    mean1 = meanh;
-    merr1 = merrh;
-  }
-  if (type2 == 0) {
-    H2 = hratiod;
-    f2 = fitd;
-    mean2 = meand;
-    merr2 = merrd;
-  }
-  else if (type2 == 1) {
-    H2 = hratiop;
-    f2 = fitp;
-    mean2 = meanp;
-    merr2 = merrp;
-  }
-  else if (type2 == 2) {
-    H2 = hratioj;
-    f2 = fitj;
-    mean2 = meanj;
-    merr2 = merrj;
-  }
-  else if (type2 == 3) {
-    H2 = hratioh;
-    f2 = fith;
-    mean2 = meanh;
-    merr2 = merrh;
-  }
-
-  TFile * ftemp = 0;
-  if (usefit == 0 && strcmp(info,"Nominal") == 0) {
-    ftemp = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu.root"),"RECREATE");
-  }
+*/
+void comp_axj(const char * cname, const char * info1, const char * info2, const char * variation,
+    struct xjgroup g1, 
+    struct xjgroup g2) {
+  drawer d;
+  int csize = 1000;
+  TCanvas * c = new TCanvas("c","",csize,csize);
   c->SaveAs(Form("%s[",cname));
+  
   for (int ir = 0; ir < ana::nJetR; ir++) {
     TPad * p1 = new TPad("p1","",0,.6,1,1);
     TPad * p2 = new TPad("p2","",0,0,1,0.6);
@@ -486,39 +298,31 @@ void comp_axj(TCanvas * c, const char * cname, const char * info, bool usefit,
     gPad->SetBottomMargin(0.03);
     TLegend * lxj = new TLegend(.16,.65,.47,.85);
     lxj->SetLineWidth(0);
-    TH1D * h1 = new TH1D(Form("h_%s_%s_%s_%i",info1.c_str(),info,H1[0][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    TH1D * h2 = new TH1D(Form("h_%s_%s_%s_%i",info2.c_str(),info,H1[0][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
+    TH1D * h1 = new TH1D(Form("h_%s_%s",info1,g1.hists[0][ir]->GetName()),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
+    TH1D * h2 = new TH1D(Form("h_%s_%s",info2,g2.hists[0][ir]->GetName()),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
+    h1->SetLineColor(g1.hists[0][ir]->GetLineColor());
+    h2->SetLineColor(g2.hists[0][ir]->GetLineColor());
+    h1->SetMarkerColor(g1.hists[0][ir]->GetMarkerColor());
+    h2->SetMarkerColor(g2.hists[0][ir]->GetMarkerColor());
+    
     for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-      if (usefit) {
-        h1->SetBinContent(ipt+1,f1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetParameter(1));
-        h2->SetBinContent(ipt+1,f2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetParameter(1));
-        h1->SetBinError(ipt+1,f1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetParError(1));
-        h2->SetBinError(ipt+1,f2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetParError(1));
-      }
-      else {
-        h1->SetBinContent(ipt+1,mean1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]);
-        h2->SetBinContent(ipt+1,mean2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]);
-        h1->SetBinError(ipt+1,merr1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]);
-        h2->SetBinError(ipt+1,merr2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]);
-      }
-
+      h1->SetBinContent(ipt+1,g1.histmeans[ipt][ir]);
+      h2->SetBinContent(ipt+1,g2.histmeans[ipt][ir]);
+      h1->SetBinError(ipt+1  ,g1.histerrs [ipt][ir]);
+      h2->SetBinError(ipt+1  ,g2.histerrs [ipt][ir]);
     }
     
     h1->GetYaxis()->SetRangeUser(0,2);
     h1->GetYaxis()->SetTitleSize(0.09);
     h1->GetYaxis()->SetLabelSize(0.08);
     h1->GetYaxis()->SetTitleOffset(0.5);
-    h1->SetLineColor(color1);
-    h1->SetMarkerColor(color1);
     h1->SetMarkerStyle(20);
     h1->GetXaxis()->SetLabelSize(0);
-    h2->SetLineColor(color2);
-    h2->SetMarkerColor(color2);
     h2->SetMarkerStyle(20);
     h1->Draw("p");
     h2->Draw("p same");
-    lxj->AddEntry(h1,info1.c_str());
-    lxj->AddEntry(h2,info2.c_str());
+    lxj->AddEntry(h1,info1);
+    lxj->AddEntry(h2,info2);
     lxj->Draw("same");
     //const char * fittext = (usefit ? "Fit method" : "Mean method");
     d.drawAll(
@@ -566,9 +370,6 @@ void comp_axj(TCanvas * c, const char * cname, const char * info, bool usefit,
     hdivide->SetMarkerSize(1);
     hdivide->Draw("same");
     d.drawLine(ana::ptBins[0],1,ana::ptBins[ana::nPtBins],1); 
-    if (usefit == 0 && strcmp(info,"Nominal") == 0) {
-      hdivide->Write();
-    }
     
     TBox *texclude2 = new TBox(10,0.8,13.0,1.2);
     texclude2->SetFillColorAlpha(kGray,0.3);
@@ -586,7 +387,7 @@ void comp_axj(TCanvas * c, const char * cname, const char * info, bool usefit,
     terr->SetFillColorAlpha(kRed,0.3);
     terr->Draw("same");
 
-    if (strcmp(info, "Nominal")) d.drawText(Form("Variation: %s",info),.25,.89,kRed,40);
+    if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),.25,.89,kRed,40);
     d.drawText(Form("#bf{Constant Fit = %2.4f #pm %2.4f}",fline->GetParameter(0), fline->GetParError(0)),.20,.82,kRed,40);
     //d.drawText(Form("#bf{#it{in situ} JES = %2.4f #pm %2.4f}",fline->GetParameter(0), fline->GetParError(0)),.25,.82,kRed,40);
 
@@ -594,9 +395,8 @@ void comp_axj(TCanvas * c, const char * cname, const char * info, bool usefit,
     c->Clear();
   }
   c->SaveAs(Form("%s]",cname));
-  if (ftemp) ftemp->Close();
 }
-
+/*
 void comp_comp_axj(TCanvas * c, const char * cname, const char * variation, bool usefit,
               int type1, int icalib1, int ibdt1, int i3jet1, int iabcd1, string info1, int color1, 
               int type2, int icalib2, int ibdt2, int i3jet2, int iabcd2, string info2, int color2) {
@@ -762,7 +562,9 @@ void comp_comp_axj(TCanvas * c, const char * cname, const char * variation, bool
   }
   c->SaveAs(Form("%s]",cname));
 }
+*/
 
+/*
 void fillxj(bool usefit) {
   for (int ir = 0; ir < ana::nJetR; ir++) {
     TH1D * hd = new TH1D(Form("hxjd_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
@@ -969,71 +771,17 @@ void fillxj(bool usefit) {
   }
   return;
 }
+*/
 
-void draw_all() {
+void newdraw_all() {
   gStyle->SetOptStat(0);
   if (!gROOT->IsBatch()) {
     cout << "Run with -b flag or else!!" << endl;
     gROOT->SetBatch(kTRUE);
     //return;
   }
-  
-  cout << "formatting hists/funcs..." << endl;
-  for (int i = 0; i < ana::nPtBins; i++ ) {
-    for (int j = 0; j < ana::nJetR; j++ ) {
-      for (int k = 3; k < ana::nCalibBins; k++ ) {
-        if (k == 4) continue;
-        for (int l = 0; l < ana::nIsoBdtBins; l++ ) {
-          for (int m = 0; m < ana::n3jetBins; m++ ) {
-            for (int n = 0; n < 5; n++ ) {
-              //cout << "Working on " << i << " " << j << " " << k << " " << l << " " << m << " " << n << endl;
-              if (n == 0 || n == 4) {
-                //fitd[i][j][k][l][m][n] = d.fit(hratiod[i][j][k][l][m][n], lowbin*0.08,2, "RLQI0");
-                //fitd[i][j][k][l][m][n]->SetParameter(0,fitd[i][j][k][l][m][n]->GetParameter(0)/hratiod[i][j][k][l][m][n]->GetEntries());
-                //d.format(fitd[i][j][k][l][m][n],0);
-              }
-
-              d.format(hratiod[i][j][k][l][m][n],0);
-              d.format(hratiop[i][j][k][l][m][n],1);
-              dh.format(hratioh[i][j][k][l][m][n],2);
-              d.format(hratioj[i][j][k][l][m][n],2);
-              
-              if (n == 0 || n == 4) {
-                //fitp[i][j][k][l][m][n] = d.fit(hratiop[i][j][k][l][m][n], lowbin*0.08,2,"RMQI0");
-                //fith[i][j][k][l][m][n] = dh.fit(hratioh[i][j][k][l][m][n], lowbin*0.08,2,"RMQI0");
-                ////fitj[i][j][k][l][m][n] = d.fit(hratioj[i][j][k][l][m][n], (int)(minjet/lowcluster/0.04 + 1)*0.04,2);
-                //d.format(fitp[i][j][k][l][m][n],1);
-                //dh.format(fith[i][j][k][l][m][n],1);
-              
-                meand[i][j][k][l][m][n] = hratiod[i][j][k][l][m][n]->GetMean();
-                merrd[i][j][k][l][m][n] = hratiod[i][j][k][l][m][n]->GetMeanError();
-                meanp[i][j][k][l][m][n] = hratiop[i][j][k][l][m][n]->GetMean();
-                merrp[i][j][k][l][m][n] = hratiop[i][j][k][l][m][n]->GetMeanError();
-                meanj[i][j][k][l][m][n] = hratioj[i][j][k][l][m][n]->GetMean();
-                merrj[i][j][k][l][m][n] = hratioj[i][j][k][l][m][n]->GetMeanError();
-                meanh[i][j][k][l][m][n] = hratioh[i][j][k][l][m][n]->GetMean();
-                merrh[i][j][k][l][m][n] = hratioh[i][j][k][l][m][n]->GetMeanError();
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  cout << "Drawing calib plots..." << endl;
-  int csize =  700;
-  TCanvas * c = new TCanvas("c","",csize*ana::nJetR+200,csize*ana::nPtBins);
-  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/abcd_calib.pdf["));
-  // 5 for A,B,C,D, and the combined one
-  for (int iabcd = 0; iabcd < 5; iabcd++) {
-    c->Clear();
-    draw_wall(c,iabcd,3);
-    c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/abcd_calib.pdf"));
-  }
-  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/abcd_calib.pdf]"));
-  delete c;
-
+  /*
+  int csize = 700;
   cout << "Drawing single bin..." << endl;
   int i = 5;
   int j = 2;
@@ -1045,23 +793,21 @@ void draw_all() {
     cone_calib->SaveAs("/home/samson72/sphnx/gammajet/pdfs/oneabcd_calib.pdf");
   }
   cone_calib->SaveAs("/home/samson72/sphnx/gammajet/pdfs/oneabcd_calib.pdf]");
+*/
+
 
   cout << "Drawing many bins..." << endl;
-  TCanvas * cmany1 = new TCanvas("cmany1","",csize*4,csize*3);
-  TCanvas * cmany2 = new TCanvas("cmany2","",csize*4,csize*3);
-  TCanvas * cmany3 = new TCanvas("cmany3","",csize*4,csize*3);
-  TCanvas * cmany4 = new TCanvas("cmany4","",csize*4,csize*3);
-  TCanvas * cmany5 = new TCanvas("cmany5","",csize*4,csize*3);
-  TCanvas * cmany6 = new TCanvas("cmany6","",csize*4,csize*3);
-  TCanvas * cmany7 = new TCanvas("cmany7","",csize*4,csize*3);
-  TCanvas * cmany8 = new TCanvas("cmany8","",csize*4,csize*3);
-  TCanvas * cmany9 = new TCanvas("cmany9","",csize*4,csize*3);
-  TCanvas * cmany10 = new TCanvas("cmany10","",csize*4,csize*3);
-  TCanvas * cmany11 = new TCanvas("cmany11","",csize*4,csize*3);
   draw_many(
-    cmany1, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
-    0, 2, 3, 0, 0, 0,
-    1, 2, 3, 0, 0, 0);
+    "/home/samson72/sphnx/gammajet/pdfs/paper/allptbins_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
+    get_hists(0, 3, 0, 0, 0, "pythia"),
+    get_hists(1, 3, 0, 0, 0, "pythia")
+    );
+  draw_many(
+    "/home/samson72/sphnx/gammajet/pdfs/allptbins_regionA_photon_scale.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "1\% scale",
+    get_hists(0, 3, 0, 0, 0, "pythia"),
+    get_hists(1, 4, 0, 0, 0, "pythia")
+    );
+  /*
   draw_many(
     cmany2, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_narrowBDT.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow BDT",
     0, 2, 3, 1, 0, 0,
@@ -1107,9 +853,19 @@ void draw_all() {
   TCanvas * caxj13 = new TCanvas("caxj13","",1000,1000);
   TCanvas * caxj14 = new TCanvas("caxj14","",1000,1000);
   TCanvas * caxj15 = new TCanvas("caxj15","",1000,1000);
-  //comp_axj(caxj1,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit.pdf","Nominal", 1, // 1 means use fit
-  //  0, 3, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue, 
-  //  1, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
+  */
+  comp_axj(
+    "/home/samson72/sphnx/gammajet/pdfs/paper/axj_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
+    get_hists(0, 3, 0, 0, 0, "pythia"),
+    get_hists(1, 3, 0, 0, 0, "pythia")
+    );
+  comp_axj(
+    "/home/samson72/sphnx/gammajet/pdfs/axj_regionA_photon_scale.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "1\% scale",
+    get_hists(0, 3, 0, 0, 0, "pythia"),
+    get_hists(1, 4, 0, 0, 0, "pythia")
+    );
+  
+  /*
   //comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_narrowBDT.pdf","Narrow BDT score", 1,
   //  0, 3, 1, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
   //  1, 3, 1, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
@@ -1228,5 +984,6 @@ void draw_all() {
       if (ir == ana::nJetR -1) cout << " [1ex]";
       cout << endl;
     }
-  } 
+  }
+ */ 
 }

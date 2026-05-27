@@ -10,19 +10,28 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
   float phoval = pho.pt;
   float val = jetval/phoval;
   int ipt = ana::findPtBin(pho.pt);
+  float lowval = ana::jet_calib_pt_cut[ir]/ana::ptBins[ipt];
+  float lowbin = ((int)(lowval/0.08 + 1))*0.08;
+  if (val < lowbin) return false;
   bool issingle = pho.pt > ana::singleptlow && pho.pt < ana::singlepthigh;
   if (icalib == 0) {
     hdeltaphi[ipt][ir]->Fill(dphi);
   }
+
+  bool passabcd = ana::findabcdBin(pho.iso4, pho.showershape, 0) == 0;
  
   //cout << pho.eta << " " << jet.eta << " " << dphi << " " << ipt << endl; 
   if (fabs(pho.eta) > ana::etacut) return false;
   if (fabs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
   if (!isMC && fabs(pho.t - jet.t) > ana::tcut) return false;
-  if (dphi < ana::oppcut) return false;
   if (ipt < 0) return false;
   if (useshowershape && pho.showershape == 0) return false;
+  if (passabcd && icalib == 3) hjetpt_formarzia[ir][0][0]->Fill(jet.pt);
+  if (dphi < ana::oppcut) return false;
+  if (passabcd && icalib == 3) hjetpt_formarzia[ir][0][1]->Fill(jet.pt);
   
+  if (icalib == 3) hjetpt_formarzia[ir][1][0]->Fill(jet.pt);
+  if (passabcd && icalib == 3) hjetpt_formarzia[ir][1][1]->Fill(jet.pt);
   // Get the ABCD info and fill
   int iabcd[ana::nIsoBdtBins];
   bool b_hasthirdjet = hasthirdjet[ir]; 
@@ -31,17 +40,24 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
       iabcd[iib] = ana::findabcdBin(pho.iso4, pho.showershape, iib);
     }
     else {
-      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
+      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, pho.pt, iib);
+      //iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
     }
-    if (iabcd[iib] == -1) continue;
+    if (iabcd[iib] == -1 || !passabcd) continue;
     
     hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val, weight); 
     
     if (!b_hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd[iib]]->Fill(val);
     if (issingle && ir == 1 && icalib == 2 && iib == 0 && iabcd[iib] == 0) hratiosingle->Fill(val);
+
+
+    if (iib == 0 && iabcd[iib] == 0 && icalib == 3) {
+      int ief = ana::findEmfracBin(jet.emfrac);
+      hratio_emfrac[ipt][ir][ief]->Fill(val,weight);
+    }
   }
  
-  if (icalib == 1) { 
+  if (icalib == 3) { 
     hjetpt[ir]->Fill(jet.pt); 
     hjeteta[ir]->Fill(jet.eta); 
     if (jet.emfrac > 0.8) hjetetahighem[ir]->Fill(jet.eta); 
@@ -139,11 +155,22 @@ void histmaker::make_hists()
     float newPhi = rand->Gaus(cluster_phi, cluster_position_smear_func->Eval(cluster_e));
     float newEta = rand->Gaus(cluster_eta, cluster_position_smear_func->Eval(cluster_e));
 
+    //pho_object maxpho_smear = pho_object(
+    //    newE/TMath::CosH(newEta),
+    //    newE,
+    //    newEta,
+    //    newPhi,
+    //    cluster_showershape[8],
+    //    cluster_showershape[9],
+    //    cluster_time, 
+    //    cluster_bdt_scores[9], 
+    //    pho_object::get_showershape(cluster_showershape, cluster_pt)
+    //); 
     pho_object maxpho_smear = pho_object(
-        newE/TMath::CosH(newEta),
-        newE,
-        newEta,
-        newPhi,
+        cluster_pt * (1 + 0.0005 * cluster_pt - 0.005),
+        cluster_e,
+        cluster_eta,
+        cluster_phi,
         cluster_showershape[8],
         cluster_showershape[9],
         cluster_time, 
@@ -187,9 +214,12 @@ void histmaker::make_hists()
           0, 
           jet_time[ir]
       );
+      bool userecalib = rand->Integer(2);
       if (isMC) {
         maxjet_smear[ir] = jet_object(
-          jet_pt_smear[ir], 
+          (userecalib ? jet_pt_smear[ir] : jet_pt_recalib[ir]), 
+          //jet_pt_smear[ir], 
+          //jet_pt_recalib[ir], 
           jet_e[ir],
           jet_eta[ir], 
           jet_phi[ir], 
@@ -240,7 +270,7 @@ void histmaker::make_hists()
       if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir]) {
         //if (ir == 1) maxpho.print();
         ispaired[ir] = loop(maxjet_smear[ir], ir, maxpho, 2);
-        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz) : 1.0));
+        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0));
         loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4);
       }
       if (maxjet_smear_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
@@ -249,7 +279,18 @@ void histmaker::make_hists()
       if (maxjet_smear_low[ir].pt > ana::jet_calib_pt_cut[ir]) {
         loop(maxjet_smear_low[ir], ir, maxpho, 6);
       }
-      
+    
+      if (ispaired[ir] && ir == 2) {
+        int ptbin = ana::findPtBin(maxpho.pt);
+        float val = maxjet_smear[ir].pt/maxpho.pt;
+        float lowval = ana::jet_calib_pt_cut[ir]/ana::ptBins[ipt];
+        float lowbin = ((int)(lowval/0.08 + 1))*0.08;
+        if (val > lowbin) {
+          if (userecalib) h1_forjin[ptbin]->Fill(val);
+          else h2_forjin[ptbin]->Fill(val);
+        }
+      }
+
       anypaired |= ispaired[ir];
 
 
@@ -260,10 +301,13 @@ void histmaker::make_hists()
 
       // Fill skimmed ttrees
       if (ispaired[ir]) {
-        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
-        int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 1);
-        int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 2);
-        float weight = (isMC ? reweight(maxpho.pt, vz) : 1.0);
+        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
+        int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 1);
+        int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 2);
+        //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+        //int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 1);
+        //int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 2);
+        float weight = (isMC ? reweight(maxpho.pt, vz, maxjet[ir].emfrac) : 1.0);
         if (iabcd == 0) { // Nominal
           outtree_pho_pt[ir] = maxpho.pt;
           outtree_jet_pt[ir] = maxjet_smear[ir].pt;
@@ -318,7 +362,8 @@ void histmaker::make_hists()
     hclustereta->Fill(maxpho.eta); 
     hclusteretaphi->Fill(maxpho.eta,maxpho.phi); 
     
-    int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+    int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
+    //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
     hclusterptabcd[iabcd]->Fill(maxpho.pt); 
     
     // cluster and jet kinematic histos
@@ -398,10 +443,19 @@ void histmaker::end() {
       }
     }
   }
+  for (int i = 0; i < ana::nPtBins; i++) {
+    for (int j = 0; j < ana::nJetR; j++) {
+      for (int k = 0; k < ana::nEmfracBins; k++) {
+        hratio_emfrac[i][j][k]->Write();
+      }
+    }
+  }
 
   hvz->Write();
 
   savehists(hisobdt,ana::nPtBins);
+  savehists(h1_forjin,ana::nPtBins);
+  savehists(h2_forjin,ana::nPtBins);
   savehists(hclusterptabcd,4); // for ABCD
   
   savehists(hemfrac,ana::nPtBins,ana::nJetR);
@@ -412,6 +466,14 @@ void histmaker::end() {
   savehists(hxjbdt,ana::nBdtBins,ana::nJetR);
   savehists(hhadronp,ana::nHadronBins,ana::nJetR);
   
+
+  for (int i = 0; i < ana::nJetR; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int k = 0; k < 2; k++) {
+        hjetpt_formarzia[i][j][k]->Write();
+      }
+    }
+  }
   savehists(hjetpt,ana::nJetR);
   savehists(hjetptprecut,ana::nJetR);
   savehists(htruthjetpt,ana::nJetR);

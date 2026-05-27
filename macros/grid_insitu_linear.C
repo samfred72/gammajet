@@ -75,8 +75,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
     }
 
     TH1D* h = d.get(histname,1);
-    h->Rebin(4);
-    h->GetXaxis()->SetRange(lowbin+1,25);
+    //h->Rebin(4);
+    //h->GetXaxis()->SetRange(lowbin+1,25);
 
     meanp[i] = h->GetMean();
     merrp[i] = h->GetMeanError();
@@ -122,16 +122,16 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
 
   TFile * f3;
   if (strcmp(form,"JERhigh") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERHigh.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERHigh.root",rname),"READ");
   }
   else if (strcmp(form,"JERlow") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERLow.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERLow.root",rname),"READ");
   }
   else if (strcmp(form,"HERWIG") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sHERWIG.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sherwig.root",rname),"READ");
   }
   else {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIA.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythia.root",rname),"READ");
   }
   
 
@@ -274,6 +274,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
         float errt = sqrt((err*err) / (refm*refm) + (mean*mean) * (refe*refe) / (refm*refm*refm*refm));
 
         chisq += (diff*diff)/(errt*errt);
+        //if (i < ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking just gammajet
+        //if (i >= ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking just multijet
       }
 
       if (chisq < minchisq) {

@@ -78,7 +78,7 @@ void draw_kinematics() {
   gPad->SetTicks(1,1);
   gPad->SetBottomMargin(.25);
   gPad->SetLeftMargin(.15);
-  TH1D * hdivide = (TH1D*)hptd->Clone();
+  TH1D * hdivide = (TH1D*)hptd->Clone("hdivide_pt");
   hdivide->Divide(hptd,hptp);
   hdivide->SetMarkerColor(kBlack);
   hdivide->GetYaxis()->SetTitle("Ratio");
@@ -91,6 +91,62 @@ void draw_kinematics() {
   d.drawLine(7,1,40,1);
   
   hdivide->Fit(func,"RQ");
+  
+  
+  
+  
+  TCanvas * cem = new TCanvas("cem","",700,700);
+  TPad * pem = new TPad("pem","",0,.5,1,1);
+  TPad * emdiv = new TPad("emdiv","",0,0,1,.5);
+  pem->Draw();
+  emdiv->Draw();
+  pem->cd();
+  pem->SetBottomMargin(0);
+  emdiv->SetTopMargin(0);
+  TH1D * hptdem = d.get("hemfrac2_0",0);
+  TH1D * hptpem = d.get("hemfrac2_0",1);
+  hptdem->Rebin(4);
+  hptpem->Rebin(4);
+  vector<TH1D*> histsem = {hptdem,hptpem};
+
+  TLegend * lem = new TLegend(.7,.35,.85,.55);
+  gPad->SetTicks(1,1);
+  for (int i = 0; i < hists.size(); i++) {
+    d.scale(histsem.at(i),0,1);
+    histsem.at(i)->SetMarkerColor(manycolors[i]);
+    histsem.at(i)->SetMarkerStyle(manystyles[i]);
+    histsem.at(i)->SetMarkerSize(1);
+    histsem.at(i)->GetYaxis()->SetTitleSize(0.08);
+    histsem.at(i)->GetYaxis()->SetLabelSize(0.08);
+    histsem.at(i)->GetYaxis()->SetTitleOffset(0.8);
+    histsem.at(i)->GetXaxis()->SetTitleSize(0.08);
+    histsem.at(i)->GetXaxis()->SetLabelSize(0.08);
+    histsem.at(i)->GetXaxis()->SetTitle("Jet EM fraction");
+    histsem.at(i)->GetYaxis()->SetRangeUser(0,0.4);
+    histsem.at(i)->Draw("p same");
+    lem->AddEntry(histsem.at(i),labels.at(i).c_str());
+  }
+  lem->SetLineWidth(0);
+  lem->Draw();
+  d.drawAll({},{"|vz| < 60","Paired Clusters","10 GeV < p_{T}^{#gamma} < 11 GeV"},0.25,0.75,20,700*0.5);
+  gPad->SetLeftMargin(.15);
+  emdiv->cd();
+  gPad->SetLogy(0);
+  gPad->SetTicks(1,1);
+  gPad->SetBottomMargin(.25);
+  gPad->SetLeftMargin(.15);
+  TH1D * hdivideem = (TH1D*)hptdem->Clone("hreweight_emfrac");
+  hdivideem->Divide(hptdem,hptpem);
+  hdivideem->SetMarkerColor(kBlack);
+  hdivideem->GetYaxis()->SetTitle("Ratio");
+  hdivideem->GetYaxis()->SetTitleSize(0.08);
+  hdivideem->GetYaxis()->SetLabelSize(0.08);
+  hdivideem->GetXaxis()->SetTitleSize(0.08);
+  hdivideem->GetXaxis()->SetLabelSize(0.08);
+  hdivideem->GetYaxis()->SetRangeUser(0,2);
+  hdivideem->Draw("p");
+  d.drawLine(7,1,40,1);
+  
   
   TF1 * pfunc = new TF1("pfunc", piecewise_func, 10, 35, 0);
   pfunc->SetNpx(10000);
@@ -107,6 +163,7 @@ void draw_kinematics() {
   hvzd->Write();
   hvzp->Write();
   hvzr->Write();
+  hdivideem->Write();
   
   ftemp->Close();
 

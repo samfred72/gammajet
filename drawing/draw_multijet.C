@@ -59,28 +59,31 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     if (ipt < nx) drawy_temp = 0.83;
     d.drawMany({
         Form("#bf{%.0f GeV < p_{T,1} < %.0f GeV}",ana::trijetPtBins[ipt],ana::trijetPtBins[ipt+1]),
+        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","Data",  h1->GetMean(), h1->GetMeanError()),
+        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","MC",  h2->GetMean(), h2->GetMeanError())
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  h1->GetMean(), h1->GetMeanError()),
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  h2->GetMean(), h2->GetMeanError())
         },drawx,drawy_temp,42,c->GetWh()/3.0);
     float err = TMath::Sqrt(h1->GetMeanError()*h1->GetMeanError()+h2->GetMeanError()*h2->GetMeanError());
     cout << ana::trijetPtBins[ipt] << "-" << ana::trijetPtBins[ipt+1] << std::fixed << std::setprecision(3) << " \\GeV & " 
-      << h1->GetMean() << " $\\pm$ " << h1->GetMeanError() << " & " 
-      << h2->GetMean() << " $\\pm$ " << h2->GetMeanError() << " & "
+      //<< h1->GetMean() << " $\\pm$ " << h1->GetMeanError() << " & " 
+      //<< h2->GetMean() << " $\\pm$ " << h2->GetMeanError() << " & "
       << h1->GetMean()/h2->GetMean() << " $\\pm$ " << err << " \\\\ " << std::defaultfloat << endl;
   }
 
   p->cd();
   d.drawAll({
-      //info1, 
-      //info2
+      info1, 
+      info2
       },
       {
-      //"Analysis cuts",
+      "Analysis cuts",
       Form("Jet R=%1.1f",ana::JetRs[ir]),
-      //variation,
+      variation,
       },
       drawx,drawy,fontsize,c->GetWh());
-  TLegend * l2 = new TLegend(drawx,drawy-.20,0.99,drawy-.10);
+  TLegend * l2 = new TLegend(drawx,drawy-.40,0.99,drawy-.30);
+  //TLegend * l2 = new TLegend(drawx,drawy-.20,0.99,drawy-.10);
   l2->SetLineWidth(0);
   l2->AddEntry(H1[0],info1);
   l2->AddEntry(H2[0],info2);
@@ -188,10 +191,11 @@ void draw_multijet() {
   }
   
   cout << "collecting/formatting hists" << endl;
-  const char * typenames[4] = {"","_JERhigh","_JERlow","_HERWIG"};
-  TH1D * hd[ana::nTrijetPtBins][ana::nJetR][4]; // 4 is for nominal, JERhigh, JERlow, HERWIG
-  TH1D * hj[ana::nTrijetPtBins][ana::nJetR][4]; // 4 is for nominal, JERhigh, JERlow, HERWIG
-  for (int k = 0; k < 4; k++) {
+  const int ntypes = 5;
+  const char * typenames[ntypes] = {"","_JERhigh","_JERlow","_JERreco","_HERWIG"};
+  TH1D * hd[ana::nTrijetPtBins][ana::nJetR][ntypes]; // ntypes is for nominal, JERhigh, JERlow, JERreco, HERWIG
+  TH1D * hj[ana::nTrijetPtBins][ana::nJetR][ntypes]; // ntypes is for nominal, JERhigh, JERlow, JERreco, HERWIG
+  for (int k = 0; k < ntypes; k++) {
     for (int j = 0; j < ana::nJetR; j++) {
       TFile * f = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_trijet%s_%s.root",typenames[k],ana::rnames[j]),"READ");
       for (int i = 0; i < ana::nTrijetPtBins; i++) {
@@ -249,6 +253,13 @@ void draw_multijet() {
   for (int i = 0; i < ana::nTrijetPtBins; i++) {
     htemp1[i] = hd[i][ijet][3];
     htemp2[i] = hj[i][ijet][3];
+  }
+  draw_many(
+    cmany3, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_JERreco.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER Reco",
+    htemp1, htemp2);
+  for (int i = 0; i < ana::nTrijetPtBins; i++) {
+    htemp1[i] = hd[i][ijet][4];
+    htemp2[i] = hj[i][ijet][4];
   }
   draw_many(
     cmany4, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_HERWIG.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Herwig 7.3", "HERWIG",

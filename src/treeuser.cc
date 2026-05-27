@@ -24,6 +24,7 @@ void treeuser::treesetup() {
 
   t->SetBranchAddress("jet_pt" , jet_pt , &b_jet_pt );
   t->SetBranchAddress("jet_pt_calib" , jet_pt_calib , &b_jet_pt_calib );
+  t->SetBranchAddress("jet_pt_recalib" , jet_pt_recalib , &b_jet_pt_recalib );
   t->SetBranchAddress("jet_e"  , jet_e  , &b_jet_e  );
   t->SetBranchAddress("jet_eta", jet_eta, &b_jet_eta);
   t->SetBranchAddress("jet_phi", jet_phi, &b_jet_phi);
@@ -41,6 +42,7 @@ void treeuser::treesetup() {
     t->SetBranchAddress("truth_cluster_iso4", &truth_cluster_iso4, &b_truth_cluster_iso4);
     
     t->SetBranchAddress("jet_pt_smear" , jet_pt_smear , &b_jet_pt_smear );
+    t->SetBranchAddress("jet_pt_smear_reco" , jet_pt_smear_reco , &b_jet_pt_smear_reco );
     t->SetBranchAddress("jet_pt_smear_high" , jet_pt_smear_high , &b_jet_pt_smear_high );
     t->SetBranchAddress("jet_pt_smear_low"  , jet_pt_smear_low  , &b_jet_pt_smear_low  );
     

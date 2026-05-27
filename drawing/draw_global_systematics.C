@@ -2,7 +2,7 @@
 #include "/home/samson72/sphnx/gammajet/src/drawer.h"
 #include "/home/samson72/sphnx/gammajet/src/ana.h"
 
-void draw_global_systematics(int ir=2, int type=0) {
+void draw_global_systematics(int ir=2, int type=3) {
   drawer d;
   
   bool pythia_default = 0;
