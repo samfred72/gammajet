@@ -122,16 +122,16 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
 
   TFile * f3;
   if (strcmp(form,"JERhigh") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERHigh.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERHigh.root",rname),"READ");
   }
   else if (strcmp(form,"JERlow") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERLow.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERLow.root",rname),"READ");
   }
   else if (strcmp(form,"HERWIG") == 0) {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sherwig.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sHERWIG.root",rname),"READ");
   }
   else {
-    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythia.root",rname),"READ");
+    f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIA.root",rname),"READ");
   }
   
 

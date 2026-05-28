@@ -40,10 +40,10 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
       iabcd[iib] = ana::findabcdBin(pho.iso4, pho.showershape, iib);
     }
     else {
-      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, pho.pt, iib);
-      //iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
+      //iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, pho.pt, iib);
+      iabcd[iib] = ana::findabcdBin(pho.iso4, pho.bdt, iib);
     }
-    if (iabcd[iib] == -1 || !passabcd) continue;
+    if (iabcd[iib] == -1) continue;// || !passabcd) continue;
     
     hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val, weight); 
     
@@ -217,8 +217,8 @@ void histmaker::make_hists()
       bool userecalib = rand->Integer(2);
       if (isMC) {
         maxjet_smear[ir] = jet_object(
-          (userecalib ? jet_pt_smear[ir] : jet_pt_recalib[ir]), 
-          //jet_pt_smear[ir], 
+          //(userecalib ? jet_pt_smear[ir] : jet_pt_recalib[ir]), 
+          jet_pt_smear[ir], 
           //jet_pt_recalib[ir], 
           jet_e[ir],
           jet_eta[ir], 
@@ -301,12 +301,12 @@ void histmaker::make_hists()
 
       // Fill skimmed ttrees
       if (ispaired[ir]) {
-        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
-        int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 1);
-        int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 2);
-        //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
-        //int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 1);
-        //int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 2);
+        //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
+        //int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 1);
+        //int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 2);
+        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+        int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 1);
+        int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 2);
         float weight = (isMC ? reweight(maxpho.pt, vz, maxjet[ir].emfrac) : 1.0);
         if (iabcd == 0) { // Nominal
           outtree_pho_pt[ir] = maxpho.pt;
@@ -362,8 +362,8 @@ void histmaker::make_hists()
     hclustereta->Fill(maxpho.eta); 
     hclusteretaphi->Fill(maxpho.eta,maxpho.phi); 
     
-    int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
-    //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+    //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
+    int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
     hclusterptabcd[iabcd]->Fill(maxpho.pt); 
     
     // cluster and jet kinematic histos

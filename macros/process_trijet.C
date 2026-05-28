@@ -5,18 +5,18 @@ void process_trijet(const char * JER = "", int ir = 1) {
   const char * rname = ana::rnames[ir];
   
   TFile * f;
-  if (strcmp(JER, "JERHigh") == 0 )     f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERHigh.root",rname),"READ");
-  else if (strcmp(JER, "JERLow") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERLow.root",rname),"READ");
-  else if (strcmp(JER, "JERReco") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythiaJERReco.root",rname),"READ");
-  else if (strcmp(JER, "HERWIG") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sherwig.root",rname),"READ");
-  else f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%spythia.root",rname),"READ");
+  if (strcmp(JER, "JERHigh") == 0 )     f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERHigh.root",rname),"READ");
+  else if (strcmp(JER, "JERLow") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERLow.root",rname),"READ");
+  else if (strcmp(JER, "JERReco") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIAJERReco.root",rname),"READ");
+  else if (strcmp(JER, "HERWIG") == 0 ) f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sHERWIG.root",rname),"READ");
+  else f = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIA.root",rname),"READ");
   TTree * t0 = (TTree*)f->Get("ttree");
-  TTree * t1 = (TTree*)f->Get("ttree8");
+  //TTree * t1 = (TTree*)f->Get("ttree8");
   TTree * t2 = (TTree*)f->Get("ttree12");
   TTree * t3 = (TTree*)f->Get("ttree20");
   TTree * t4 = (TTree*)f->Get("ttree30");
-  const int ntrees = 4;
-  TTree * t[ntrees] = {t1,t2,t3,t4};
+  const int ntrees = 3;
+  TTree * t[ntrees] = {t2,t3,t4};
   TH1D * h[ntrees][ana::nTrijetPtBins];
   TH1D * h0[ana::nTrijetPtBins];
   for (int i = 0; i < ntrees; i++) {
@@ -108,7 +108,7 @@ void process_trijet(const char * JER = "", int ir = 1) {
     hsum->Reset("ICES");
     hsum->Add( h[0][j],  h[1][j]);
     hsum->Add( hsum,     h[2][j]);
-    hsum->Add( hsum,     h[3][j]);
+    //hsum->Add( hsum,     h[3][j]);
     hsum->Write();
   }
   for (int j = 0; j < ana::nTrijetPtBins; j++) {
