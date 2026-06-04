@@ -202,6 +202,15 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
 
   TH2D *hchisq2d = new TH2D("hchisq2d",";pa;pb",na,lowa-0.00001,higha-0.00001,nb,lowb-0.00001,highb-0.00001);
 
+  TH1D *hxj_MC[ana::nPtBins];
+  TH1D *hxj_data[ana::nPtBins];
+  TH1D *hxj_corrected[ana::nPtBins];
+  for (int i = 0; i < ana::nPtBins; i++) {
+    const char * histname = Form("hratio_%i_2_3_0_0_0",i);
+    hxj_MC[i] = (TH1D*)d.get(histname,1,-1)->Clone(Form("hxj_MC_%i",i));
+    hxj_data[i] = (TH1D*)d.get(histname,0,-1)->Clone(Form("hxj_data_%i",i));
+    hxj_corrected[i] = new TH1D(Form("hxj_corrected_%i",i),";x_J;Normalized Counts",25,0,2);
+  }
   // -----------------------------
   // GRID LOOP
   // -----------------------------
@@ -273,8 +282,8 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
         //if (errt < 0.01) errt = 0.01;
         float errt = sqrt((err*err) / (refm*refm) + (mean*mean) * (refe*refe) / (refm*refm*refm*refm));
 
-        chisq += (diff*diff)/(errt*errt);
-        //if (i < ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking just gammajet
+        //chisq += (diff*diff)/(errt*errt);
+        if (i < ana::nPtBins && i > 2) chisq += (diff*diff)/(errt*errt); // For checking just gammajet
         //if (i >= ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking just multijet
       }
 
@@ -316,13 +325,16 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   // gammajet
   for (auto &ev : gamma) {
     float x = ev.base;
+    double f = minpa + minpb*ev.pt;
+    double x_corrected = ev.base / f;
 
-    float lowval = (int)(ana::jet_calib_pt_cut[1]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
+    float lowval = (int)(ana::jet_calib_pt_cut[2]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
     if (x > lowval  && x <= 2) {
       sum[ev.bin] += x;
       sum2[ev.bin] += x*x;
       count[ev.bin]++;
     }
+    if (x_corrected > lowval && x < 2) hxj_corrected[ev.bin]->Fill(x_corrected);
   }
 
   // trijet
@@ -451,6 +463,15 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   hstandardinsitu3->Write();
   hchisq->Write();
   hchisq2d->Write();
+  
+  for(int i = 0; i < ana::nPtBins; i++) {
+    hxj_MC[i]->Scale(1.0/hxj_MC[i]->Integral());
+    hxj_data[i]->Scale(1.0/hxj_data[i]->Integral());
+    hxj_corrected[i]->Scale(1.0/hxj_corrected[i]->Integral());
+    hxj_MC[i]->Write(0);
+    hxj_data[i]->Write(0);
+    hxj_corrected[i]->Write(0);
+  }
 
   TTree * wt = new TTree("T","tree");
   wt->Branch("chisq", &minchisq, "chisq/F");

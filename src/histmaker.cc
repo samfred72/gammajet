@@ -1,9 +1,22 @@
 #include "/home/samson72/sphnx/gammajet/src/histmaker.h"
 using namespace std;
 
+bool histmaker::check_pair(jet_object jet, int ir, pho_object pho) {
+  float dphi = jet.deltaPhi(pho);
+  int iabcd = ana::findabcdBin(pho.iso4, pho.bdt, 0);
+  
+  //if (iabcd != 0) return false;
+  if (fabs(pho.eta) > ana::etacut) return false;
+  if (fabs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
+  if (dphi < ana::oppcut) return false;
+  if (!isMC && fabs(pho.t - jet.t) > ana::tcut) return false;
+  
+  return true;
+}
+
 // Doesn't actually loop. Just checks that the found photon and found jet are a correct match for each other.
 // This is where the xJ plot is filled
-bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float weight) {
+bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float weight, pho_object truthpho) {
   bool useshowershape = 0;
   float dphi = jet.deltaPhi(pho);
   float jetval = jet.pt;
@@ -54,6 +67,9 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
     if (iib == 0 && iabcd[iib] == 0 && icalib == 3) {
       int ief = ana::findEmfracBin(jet.emfrac);
       hratio_emfrac[ipt][ir][ief]->Fill(val,weight);
+      //cout << pho.deltaR(truthpho) << endl;
+      if (pho.deltaR(truthpho) < 0.05) hratio_direct[ipt][ir][0]->Fill(val,weight);
+      else hratio_direct[ipt][ir][1]->Fill(val,weight);
     }
   }
  
@@ -85,6 +101,9 @@ void histmaker::make_hists()
   cout << "isMC " << isMC << endl;
   for (Long64_t e = 0; e < nentries; e++) {
     t->GetEntry(e);
+    float treepho;
+    float treejet;
+    
     //t0corr = t0map[RunNumber];
     if(e % 1000==0) std::cout << "entry " << e << "/" << nentries << " (" << (float)e/nentries*100. << "%)" << "\t\r" << std::flush;
     //if (RunNumber != 51154) continue;
@@ -122,17 +141,17 @@ void histmaker::make_hists()
         if (truth_jet_pt[i] > 0) htruthjetptprecut[i]->Fill(truth_jet_pt[i]);
       }
       
-      vector<bool> keepMC = check_keep_MC(truth_cluster_pt, truth_jet_pt, trigger);
+      keepMC = check_keep_MC(truth_cluster_pt, cluster_pt, truth_jet_pt, jet_pt_smear, trigger);
+      //cout << truth_cluster_pt << " " << cluster_pt << " " <<  truth_jet_pt[2] << " " << jet_pt_smear[2] << " " << trigger << endl; 
+      //cout << keepMC[2]  << endl;
       //for( int i = 0; i < keepMC.size(); i++) {
       //  cout << keepMC[i] << " ";
       //}
       //cout << endl;
       if (!keepMC.at(keepMC.size()-1)) continue;
+      //if (keepMC[2] && cluster_pt > 14) cout << "AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" << truth_cluster_pt << " " << cluster_pt << " " <<  truth_jet_pt[2] << " " << jet_pt_smear[2] << " " << trigger << endl;
 
       htruthclusterpt->Fill(truth_cluster_pt);
-      for (int i = 0; i < ana::nJetR; i++) {  
-        if (keepMC.at(i)) htruthjetpt[i]->Fill(truth_jet_pt[i]);
-      }
     }
 
     for (int i = 0; i < 11; i++) {
@@ -150,6 +169,18 @@ void histmaker::make_hists()
         cluster_bdt_scores[9], 
         pho_object::get_showershape(cluster_showershape, cluster_pt)
     ); 
+    pho_object truthpho = pho_object(
+        truth_cluster_pt, 
+        truth_cluster_e,
+        truth_cluster_eta, 
+        truth_cluster_phi, 
+        0,
+        00,
+        0, 
+        .99, 
+        2
+    ); 
+    if (!isMC) truthpho = maxpho;
     float newE = rand->Gaus(cluster_e, cluster_energy_smear_func->Eval(cluster_e));
     newE *= 1.007;
     float newPhi = rand->Gaus(cluster_phi, cluster_position_smear_func->Eval(cluster_e));
@@ -192,6 +223,7 @@ void histmaker::make_hists()
     bool ispaired[ana::nJetR] = { 0 };
     bool anypaired = false;
     for (int ir = 0; ir < ana::nJetR; ir++) {
+      //cout << "ir: " << ir << " keep: " << keepMC.at(ir) << endl;
       if (!keepMC.at(ir)) continue;
       // one for uncalib, calibrated, and JER smeared`
       maxjet[ir] = jet_object(
@@ -217,7 +249,7 @@ void histmaker::make_hists()
       bool userecalib = rand->Integer(2);
       if (isMC) {
         maxjet_smear[ir] = jet_object(
-          //(userecalib ? jet_pt_smear[ir] : jet_pt_recalib[ir]), 
+          //(userecalib ? jet_pt_smear[ir] / 0.975 : jet_pt_smear[ir]), 
           jet_pt_smear[ir], 
           //jet_pt_recalib[ir], 
           jet_e[ir],
@@ -262,32 +294,39 @@ void histmaker::make_hists()
       }
       // Fill the xJ histograms
       if (maxjet[ir].pt > ana::jet_pt_cut[ir]) {
-        loop(maxjet[ir],  ir, maxpho, 0);
+        loop(maxjet[ir],  ir, maxpho, 0, 1, truthpho);
       }
       if (maxjet_calib[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_calib[ir], ir, maxpho, 1);
+        loop(maxjet_calib[ir], ir, maxpho, 1, 1, truthpho);
       }
       if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        //if (ir == 1) maxpho.print();
-        ispaired[ir] = loop(maxjet_smear[ir], ir, maxpho, 2);
-        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0));
-        loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4);
+        loop(maxjet_smear[ir], ir, maxpho, 2,  1, truthpho); // Normal smearing
+        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // smearing with weights
+        loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4,  1, truthpho); // smearing the photon, too
       }
       if (maxjet_smear_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_smear_high[ir], ir, maxpho, 5);
+        loop(maxjet_smear_high[ir], ir, maxpho, 5,  1, truthpho);
       }
       if (maxjet_smear_low[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_smear_low[ir], ir, maxpho, 6);
+        loop(maxjet_smear_low[ir], ir, maxpho, 6,  1, truthpho);
       }
     
-      if (ispaired[ir] && ir == 2) {
+      int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+      if (iabcd == 0 && ispaired[ir] && ir == 2) {
+        
         int ptbin = ana::findPtBin(maxpho.pt);
         float val = maxjet_smear[ir].pt/maxpho.pt;
         float lowval = ana::jet_calib_pt_cut[ir]/ana::ptBins[ipt];
         float lowbin = ((int)(lowval/0.08 + 1))*0.08;
         if (val > lowbin) {
-          if (userecalib) h1_forjin[ptbin]->Fill(val);
-          else h2_forjin[ptbin]->Fill(val);
+          if (userecalib) {
+            treepho = maxpho.pt;
+            treejet = maxjet_smear[ir].pt;
+            h1_forjin[ptbin]->Fill(val);
+          }
+          else {
+            h2_forjin[ptbin]->Fill(val);
+          }
         }
       }
 
@@ -300,7 +339,7 @@ void histmaker::make_hists()
       }
 
       // Fill skimmed ttrees
-      if (ispaired[ir]) {
+      if (check_pair(maxjet[ir], ir, maxpho)) {
         //int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 0);
         //int iabcd_bdt = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 1);
         //int iabcd_iso = ana::findabcdBin(maxpho.iso4, maxpho.bdt, maxpho.pt, 2);
@@ -326,6 +365,22 @@ void histmaker::make_hists()
               outtree_weight_JERlow[ir] = weight;
               outtree_JERlow[ir]->Fill();
             }
+            if (ir == 2 && userecalib && jet_pt_smear[ir] > ana::jet_calib_pt_cut[ir]) { // Jin test
+              float val =  maxjet_smear[ir].pt / maxpho.pt;
+              float lowval = ana::jet_calib_pt_cut[ir]/ana::ptBins[ipt];
+              float lowbin = ((int)(lowval/0.08 + 1))*0.08;
+              if (val > lowbin && val < 2) { 
+                if (maxpho.pt != treepho || maxjet_smear[ir].pt != treejet) {
+                  //cout << "BAD NUMBERS!!" << endl;
+                  //cout << maxpho.pt << " " << treepho << " " << maxjet_smear[ir].pt << " " << treejet << endl;
+                }
+                outtree_pho_pt_forjin[ir] = maxpho.pt;
+                outtree_jet_pt_forjin[ir] = maxjet_smear[ir].pt;
+                outtree_weight_forjin[ir] = scalemap[trigger];
+                //cout << setprecision(15) << scalemap[trigger] << endl;
+                outtree_forjin[ir]->Fill();
+              }
+            }
           }
         }
         if (iabcd == 0 && !hasthirdjet[ir]) { // 3jet
@@ -350,6 +405,9 @@ void histmaker::make_hists()
     }
    
     if (!anypaired) continue;
+    for (int i = 0; i < ana::nJetR; i++) {  
+      if (keepMC.at(i) && ispaired[i]) htruthjetpt[i]->Fill(truth_jet_pt[i]);
+    }
 
     // max cluster histos
     hisobdt[ipt]->Fill(maxpho.iso4,maxpho.bdt); 
@@ -422,6 +480,7 @@ void histmaker::end() {
     if (isMC) {
       outtree_JERhigh[ir]->Write();
       outtree_JERlow[ir]->Write();
+      outtree_forjin[ir]->Write();
     }
   }
 
@@ -447,6 +506,13 @@ void histmaker::end() {
     for (int j = 0; j < ana::nJetR; j++) {
       for (int k = 0; k < ana::nEmfracBins; k++) {
         hratio_emfrac[i][j][k]->Write();
+      }
+    }
+  }
+  for (int i = 0; i < ana::nPtBins; i++) {
+    for (int j = 0; j < ana::nJetR; j++) {
+      for (int k = 0; k < 2; k++) {
+        hratio_direct[i][j][k]->Write();
       }
     }
   }

@@ -303,7 +303,7 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
   TLine * mline2 = new TLine(0,0,1,1);
   mline2->SetLineColor(H2[0][0][3][0][0][0]->GetLineColor());
   mline2->SetLineStyle(7);
-  TLegend * l2 = new TLegend(drawx,drawy-.2,0.99,drawy-.05);
+  TLegend * l2 = new TLegend(drawx,drawy-.25,0.99,drawy-.10);
   l2->SetLineWidth(0);
   l2->AddEntry(H1[0][ir1][icalib1][ibdt1][i3jet1][iabcd1],info1);
   l2->AddEntry(H2[0][ir2][icalib2][ibdt2][i3jet2][iabcd2],info2);
@@ -921,7 +921,7 @@ void fillxj(bool usefit) {
     hcompJH->Divide(hdivideJH,hdivide);
     
     TH1D * hcompJL = (TH1D*)hd->Clone();
-    hcompJL->SetName(Form("hcomph%i%i",ir,usefit));
+    hcompJL->SetName(Form("hcompJL%i%i",ir,usefit));
     hcompJL->Divide(hdivideJL,hdivide);
     
 

@@ -19,6 +19,7 @@ class drawer {
       TFile * f10_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Photon10"));
       TFile * f20_p = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Photon20"));
       TFile * f05_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet5"));
+      TFile * f08_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet8"));
       TFile * f12_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet12"));
       TFile * f20_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet20"));
       TFile * f30_j = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/hists_%s_%s.root",sim.c_str(),"Jet30"));
@@ -31,11 +32,12 @@ class drawer {
       pfiles[2] = f20_p;
 
       jfiles[0] = f05_j;
-      jfiles[1] = f12_j;
-      jfiles[2] = f20_j;
-      jfiles[3] = f30_j;
-      jfiles[4] = f50_j;
-      jfiles[5] = f70_j;
+      jfiles[1] = f08_j;
+      jfiles[2] = f12_j;
+      jfiles[3] = f20_j;
+      jfiles[4] = f30_j;
+      jfiles[5] = f50_j;
+      jfiles[6] = f70_j;
 
 
       cout << "simulation val is: " << sim << endl;
@@ -43,11 +45,11 @@ class drawer {
       empty_hist->SetName(Form("empty_hist_%s",sim.c_str()));
       scalemap = (sim == "pythia" ?
         map<bool,map<int,double>> {
-          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {0,{{5,1.369e+08},{8,1.3013e+07},{12,1.4903e+06},{20,6.2623e+04},{30,2.5298e+03},{50,7.2695},{70,1.034e-02}}},
           {1,{{5,146359.3},{10,6944.675},{20,130.4461}}},
         } :
            map<bool,map<int,double>> {
-          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {0,{{5,1.369e+08},{8,1.3013e+07},{12,1.4903e+06},{20,6.2623e+04},{30,2.5298e+03},{50,7.2695},{70,1.034e-02}}},
           {1,{{5,6.48487e+07},{10,3.62808e+02},{20,5.34010e+01}}}
         }
       );
@@ -63,11 +65,11 @@ class drawer {
       
       scalemap = (sim == "pythia" ?
         map<bool,map<int,double>> {
-          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {0,{{5,1.369e+08},{8,1.3013e+07},{12,3.997e+06},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
           {1,{{5,146359.3},{10,6944.675},{20,130.4461}}},
         } :
            map<bool,map<int,double>> {
-          {0,{{5,1.369e+08},{10,3.997e+06},{15,4.073e+05},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
+          {0,{{5,1.369e+08},{8,1.3013e+07},{12,3.997e+06},{20,6.218e+04},{30,2.502e+03},{50,7.2695},{70,1.034e-02}}},
           {1,{{5,6.48487e+07},{10,3.62808e+02},{20,5.34010e+01}}}
         }
       );
@@ -97,13 +99,13 @@ class drawer {
 
     const static int ndfiles = 1;
     const static int npfiles = 3;
-    const static int njfiles = 6;
+    const static int njfiles = 7;
     vector<TFile*> dfiles{ndfiles};
     vector<TFile*> pfiles{npfiles};
     vector<TFile*> jfiles{njfiles};
 
     vector<int> psamples = {5,10,20};
-    vector<int> jsamples = {5,10,20,30,50,70};
+    vector<int> jsamples = {5,8,12,20,30,50,70};
 
     string simulation = "";
     // 0: pythia jets

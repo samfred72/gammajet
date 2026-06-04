@@ -1,8 +1,8 @@
 rm unfolder.o drawer.o ana.o histmaker.o object.o pho_object.o jet_object.o treeuser.o libgammajet.so
 rm /home/samson72/root/lib/libgammajet.so
 $(root-config --cxx) -c -fPIC -Wno-deprecated-declarations\
-  unfolder.cc \
   drawer.cc \
+  unfolder.cc \
   ana.cc \
   histmaker.cc \
   object.cc \
@@ -13,8 +13,8 @@ $(root-config --cxx) -c -fPIC -Wno-deprecated-declarations\
 echo ".o files made"
 $(root-config --cxx) -shared -Wno-deprecated-declarations -o \
   libgammajet.so \
-  unfolder.o \
   drawer.o \
+  unfolder.o \
   ana.o \
   histmaker.o \
   object.o \

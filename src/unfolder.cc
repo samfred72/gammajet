@@ -50,7 +50,7 @@ void unfolder::fill_matrix() {
     // Event selection
     // -----------------------
 
-    vector<bool> keepMC = check_keep_MC(truth_cluster_pt, truth_jet_pt, trigger);
+    vector<bool> keepMC = check_keep_MC(truth_cluster_pt, cluster_pt, truth_jet_pt, jet_pt_smear, trigger);
     bool keep = 0;
     for (int i = 0; i < ana::nJetR + 1; i++) {
       keep |= keepMC.at(i);

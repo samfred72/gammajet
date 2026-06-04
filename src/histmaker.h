@@ -6,6 +6,7 @@
 #include "/home/samson72/sphnx/gammajet/src/pho_object.h"
 #include "/home/samson72/sphnx/gammajet/src/jet_object.h"
 #include "/home/samson72/sphnx/gammajet/src/treeuser.h"
+#include "/home/samson72/sphnx/gammajet/src/drawer.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -55,6 +56,9 @@ class histmaker : public treeuser {
           }
           for (int k = 0; k < ana::nEmfracBins; k++) {
             hratio_emfrac[i][j][k] = new TH1D(Form("hratio_emfrac_%i_%i_%i",i,j,k),";p_{T}^{jet}/p_{T}^{#gamma};normalized counts",25,0,2);
+          }
+          for (int k = 0; k < 2; k++) {
+            hratio_direct[i][j][k] = new TH1D(Form("hratio_direct_%i_%i_%i",i,j,k),";p_{T}^{jet}/p_{T}^{#gamma};normalized counts",25,0,2);
           }
         }
         hisobdt[i] = new TH2D(Form("hisobdt%i",i),";cluster iso;bdt score",100,-1,20,100,0,1);
@@ -142,6 +146,11 @@ class histmaker : public treeuser {
           outtree_JERlow[ir]->Branch("pho_pt", &outtree_pho_pt_JERlow[ir]);
           outtree_JERlow[ir]->Branch("jet_pt", &outtree_jet_pt_JERlow[ir]);
           outtree_JERlow[ir]->Branch("weight", &outtree_weight_JERlow[ir]);
+          
+          outtree_forjin[ir] = new TTree(Form("xjtree_forjin_%i",ir),"");
+          outtree_forjin[ir]->Branch("pho_pt", &outtree_pho_pt_forjin[ir]);
+          outtree_forjin[ir]->Branch("jet_pt", &outtree_jet_pt_forjin[ir]);
+          outtree_forjin[ir]->Branch("weight", &outtree_weight_forjin[ir]);
         }
       }
     }
@@ -150,7 +159,8 @@ class histmaker : public treeuser {
     void savehists(TH1D * h[][ana::nJetR], int n, int m);
     void savehists(TH2D * h[][ana::nJetR], int n, int m);
     void end();
-    bool loop(jet_object jet, int jindex, pho_object pho, int icalib, float weight = 1);
+    bool loop(jet_object jet, int jindex, pho_object pho, int icalib, float weight, pho_object truthpho);
+    bool check_pair(jet_object jet, int ir, pho_object pho);
     void make_hists();
     float reweight(float pt, float vz, float emfrac) { 
       float ptval = reweight_func_pt->Eval(pt);
@@ -176,9 +186,11 @@ class histmaker : public treeuser {
     TF1 * reweight_func_pt = (TF1*)reweight_file->Get("pfunc");
     TH1D * reweight_hist_vz = (TH1D*)reweight_file->Get("hvz_reweight");
     TH1D * reweight_hist_em = (TH1D*)reweight_file->Get("hreweight_emfrac");
+
+    drawer d;
+    map<string,double> scalemap = {{"Photon5",146359.3},{"Photon10",6944.675},{"Photon20",130.4461}};
     
-    
-    TRandom3 * rand = new TRandom3();
+    TRandom3 * rand = new TRandom3(18);
     float mbd_t0;
     float t0corr;
     //map<int,float> t0map;
@@ -214,10 +226,16 @@ class histmaker : public treeuser {
     float outtree_pho_pt_JERlow[ana::nJetR];
     float outtree_jet_pt_JERlow[ana::nJetR];
     float outtree_weight_JERlow[ana::nJetR];
+    
+    TTree * outtree_forjin[ana::nJetR];
+    double outtree_pho_pt_forjin[ana::nJetR];
+    double outtree_jet_pt_forjin[ana::nJetR];
+    double outtree_weight_forjin[ana::nJetR];
 
     // Define histograms
     TH1D * hratio        [ana::nPtBins][ana::nJetR][ana::nCalibBins][ana::nIsoBdtBins][ana::n3jetBins][4]; // 4 accounts for a,b,c,d regions, 2 is for noncalib vs calib jets
     TH1D * hratio_emfrac [ana::nPtBins][ana::nJetR][ana::nEmfracBins];
+    TH1D * hratio_direct [ana::nPtBins][ana::nJetR][2]; // two for 0: direct photon matched, 1: non direct photon matched
 
     TH2D * hisobdt        [ana::nPtBins];
 
