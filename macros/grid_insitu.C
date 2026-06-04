@@ -12,8 +12,8 @@ using namespace std;
 // Helper: fast 2-vector pT sum
 // -----------------------------
 inline float compute_pt_sum(
-  float pt1, float phi1,
-  float pt2, float phi2)
+    float pt1, float phi1,
+    float pt2, float phi2)
 {
   float px = pt1 * cos(phi1) + pt2 * cos(phi2);
   float py = pt1 * sin(phi1) + pt2 * sin(phi2);
@@ -23,8 +23,10 @@ inline float compute_pt_sum(
 // -----------------------------
 // Main optimized function
 // -----------------------------
-void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
-
+void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
+  bool dogamma = (version == 0 || version == 1);
+  bool domulti = (version == 0 || version == 2);
+  bool use_quad = false;
 
   drawer d;
   if (strcmp(form,"HERWIG") == 0) {
@@ -75,8 +77,6 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
     }
 
     TH1D* h = d.get(histname,1);
-    //h->Rebin(4);
-    //h->GetXaxis()->SetRange(lowbin+1,25);
 
     meanp[i] = h->GetMean();
     merrp[i] = h->GetMeanError();
@@ -133,7 +133,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   else {
     f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/trees/SAMfile_%sPYTHIA.root",rname),"READ");
   }
-  
+
 
   TTree * t3 = (TTree*)f3->Get("ttree");
 
@@ -181,10 +181,9 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   // -----------------------------
   // Grid setup
   // -----------------------------
-  int na = 100; float lowa =  0.95, higha = 1.05;
-  int nb = 100; float lowb = -0.002, highb = 0.002;
-  //int na = 1000; float lowa =  0.5, higha = 1.5;
-  //int nb = 1000; float lowb = -0.02, highb = 0.02;
+  int na = 200; float lowa =  0.95, higha = 1.05;
+  int nb = (!domulti ? 1 : 100); float lowb = (!domulti? 0 : -0.002), highb = (!domulti? 0 : 0.002);
+  int nc = (use_quad ? 100 : 1); float lowc = (use_quad ? -0.002 : 0), highc = (use_quad ? 0.002 : 0);
 
   int nTot = ana::nPtBins + ana::nTrijetPtBins;
 
@@ -192,7 +191,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   vector<int> count(nTot);
 
   float minchisq = FLT_MAX;
-  float minpa=0, minpb=0;
+  float minpa=0, minpb=0, minpc=0;
 
   TH1D * hchisq = new TH1D("hchisq",";#Chi^{2};counts",1000,0,10000);
   float bestmeans    [nTot];
@@ -220,102 +219,99 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
 
     for (int ib = 0; ib < nb; ib++) {
       float pb = lowb + ib*(highb-lowb)/nb;
+      for (int ic = 0; ic < nc; ic++) {
+        float pc = lowc + ic*(highc-lowc)/nc;
 
-      fill(sum.begin(), sum.end(), 0.f);
-      fill(sum2.begin(), sum2.end(), 0.f);
-      fill(count.begin(), count.end(), 0);
+        fill(sum.begin(), sum.end(), 0.f);
+        fill(sum2.begin(), sum2.end(), 0.f);
+        fill(count.begin(), count.end(), 0);
 
-      // gammajet
-      for (auto &ev : gamma) {
-        float f = pa + pb*ev.pt;
-        //float f = pa*(1 + pb*ev.pt);
-        float x = ev.base / f;
+        // gammajet
+        for (auto &ev : gamma) {
+          float f = pa + pb*ev.pt + pc*ev.pt*ev.pt;
+          //float f = pa*(1 + pb*ev.pt);
+          float x = ev.base / f;
 
-        float lowval = (int)(ana::jet_calib_pt_cut[1]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
-        if (x > lowval  && x <= 2) {
-          sum[ev.bin] += x;
-          sum2[ev.bin] += x*x;
-          count[ev.bin]++;
+          float lowval = (int)(ana::jet_calib_pt_cut[1]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
+          if (x > lowval  && x <= 2) {
+            sum[ev.bin] += x;
+            sum2[ev.bin] += x*x;
+            count[ev.bin]++;
+          }
         }
-      }
 
-      // trijet
-      for (auto &ev : trijet) {
-        float f1 = pa + pb*ev.sl;
-        float f2 = pa + pb*ev.ssl;
-        //float f1 = pa*(1 + pb*ev.sl);
-        //float f2 = pa*(1 + pb*ev.ssl);
+        // trijet
+        for (auto &ev : trijet) {
+          float f1 = pa + pb*ev.sl  + pc*ev.sl*ev.sl;
+          float f2 = pa + pb*ev.ssl + pc*ev.ssl*ev.ssl;
 
-        float pt1 = ev.sl / f1;
-        float pt2 = ev.ssl / f2;
+          float pt1 = ev.sl / f1;
+          float pt2 = ev.ssl / f2;
 
-        float multi = compute_pt_sum(pt1, ev.slphi, pt2, ev.sslphi);
+          float multi = compute_pt_sum(pt1, ev.slphi, pt2, ev.sslphi);
 
-        float fL = pa + pb*ev.lead;
-        //float fL = pa*(1 + pb*ev.lead);
-        float x = ev.lead / multi / fL;
+          float fL = pa + pb*ev.lead + pc*ev.lead*ev.lead;
+          float x = ev.lead / multi / fL;
 
-        int b = ana::nPtBins + ev.bin;
-        if ( x > 0.4 && x < 2.65) {
-          sum[b] += x;
-          sum2[b] += x*x;
-          count[b]++;
+          int b = ana::nPtBins + ev.bin;
+          if ( x > 0.4 && x < 2.65) {
+            sum[b] += x;
+            sum2[b] += x*x;
+            count[b]++;
+          }
         }
-      }
 
-      // chisq
-      float chisq = 0;
-      float mean;
-      float err;
-      for (int i = 0; i < nTot; i++) {
-        if (count[i] == 0) continue;
-
-        float mean = sum[i]/count[i];
-        float var  = sum2[i]/count[i] - mean*mean;
-        float err  = sqrt(var/count[i]);
-
-        float refm = (i < ana::nPtBins) ? meanp[i] : mean3[i-ana::nPtBins];
-        float refe = (i < ana::nPtBins) ? merrp[i] : merr3[i-ana::nPtBins];
-
-        float diff = 1 - mean/refm;
-        //float errt = sqrt(err*err + refe*refe);
-        //if (errt < 0.01) errt = 0.01;
-        float errt = sqrt((err*err) / (refm*refm) + (mean*mean) * (refe*refe) / (refm*refm*refm*refm));
-
-        //chisq += (diff*diff)/(errt*errt);
-        if (i < ana::nPtBins && i > 2) chisq += (diff*diff)/(errt*errt); // For checking just gammajet
-        //if (i >= ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking just multijet
-      }
-
-      if (chisq < minchisq) {
-        minchisq = chisq;
-        minpa = pa;
-        minpb = pb;
+        // chisq
+        float chisq = 0;
+        float mean;
+        float err;
         for (int i = 0; i < nTot; i++) {
+          if (count[i] == 0) continue;
+
           float mean = sum[i]/count[i];
           float var  = sum2[i]/count[i] - mean*mean;
           float err  = sqrt(var/count[i]);
-          bestmeans[i] = mean;
-          bestmerrs[i] = err;
+
+          float refm = (i < ana::nPtBins) ? meanp[i] : mean3[i-ana::nPtBins];
+          float refe = (i < ana::nPtBins) ? merrp[i] : merr3[i-ana::nPtBins];
+
+          float diff = 1 - mean/refm;
+          float errt = sqrt((err*err) / (refm*refm) + (mean*mean) * (refe*refe) / (refm*refm*refm*refm));
+
+          if (dogamma && i < ana::nPtBins)  chisq += (diff*diff)/(errt*errt); // For checking gammajet
+          if (domulti && i >= ana::nPtBins) chisq += (diff*diff)/(errt*errt); // For checking multijet
+
         }
 
-        //cout << "Better chisq: " << chisq
-        //  << "  f=" << pa << " + " << pb << "*pT\n";
-      }
+        if (chisq < minchisq) {
+          minchisq = chisq;
+          minpa = pa;
+          minpb = pb;
+          for (int i = 0; i < nTot; i++) {
+            float mean = sum[i]/count[i];
+            float var  = sum2[i]/count[i] - mean*mean;
+            float err  = sqrt(var/count[i]);
+            bestmeans[i] = mean;
+            bestmerrs[i] = err;
+          }
+        }
 
-      hchisq->Fill(chisq);
-      hchisq2d->Fill(pa,pb,chisq);
-      result.push_back({pa,pb,chisq});
+        hchisq->Fill(chisq);
+        hchisq2d->Fill(pa,pb,chisq);
+        result.push_back({pa,pb,chisq});
+      }
     }
   }
 
   cout << "\nFINAL RESULT\n";
   cout << "chi2 = " << minchisq << endl;
-  cout << "f(pT) = " << minpa << " + "
-       << minpb << "*pT\n";
-  
-  
-  
+  cout << "f(pT) = " << minpa;
+  if (domulti) cout << " + " << minpb << "*pT";
+  if (use_quad) cout << " + " << minpc << "*pT^2";
+  cout << endl;
+
+
+
 
   //cout << "Final pass on standard func" << endl;
   fill(sum.begin(), sum.end(), 0.f);
@@ -325,7 +321,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   // gammajet
   for (auto &ev : gamma) {
     float x = ev.base;
-    double f = minpa + minpb*ev.pt;
+    double f = minpa + minpb*ev.pt + minpc*ev.pt*ev.pt;
     double x_corrected = ev.base / f;
 
     float lowval = (int)(ana::jet_calib_pt_cut[2]/ana::ptBins[ev.bin]/0.08 + 1) * 0.08;
@@ -334,6 +330,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
       sum2[ev.bin] += x*x;
       count[ev.bin]++;
     }
+    // Specifically used here for the closure test
     if (x_corrected > lowval && x < 2) hxj_corrected[ev.bin]->Fill(x_corrected);
   }
 
@@ -341,7 +338,6 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   for (auto &ev : trijet) {
     float pt1 = ev.sl;
     float pt2 = ev.ssl;
-
     float multi = compute_pt_sum(pt1, ev.slphi, pt2, ev.sslphi);
 
     float x = ev.lead / multi;
@@ -354,17 +350,17 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
     }
   }
   for (int i = 0; i < nTot; i++) {
-    //if (count[i] == 0) continue;
-
     float mean = sum[i]/count[i];
     float var  = sum2[i]/count[i] - mean*mean;
     float err  = sqrt(var/count[i]);
 
-    cout << "Standard mean for bin " << i << " is " << mean << " / " << ((i < ana::nPtBins) ? meanp[i] : mean3[i-ana::nPtBins]) << endl;
+    if (i == 0) cout << "Gammajet bins:" << endl;
+    if (i == ana::nPtBins) cout << "Multijet bins:" << endl;
+    cout << "Default means for bin " << i << " is " << mean << " / " << ((i < ana::nPtBins) ? meanp[i] : mean3[i-ana::nPtBins]) << endl;
     standardmeans[i] = mean;
     standardmerrs[i] = err;
   }
-  
+
   // Collect gammajet points
 
   TH1D * hinsitu = new TH1D("hinsitu", ";p_{T} bin;corrected <x_{j,data}>/<x_{j,MC}>", ana::nPtBins, ana::ptBins);
@@ -390,15 +386,18 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   }
 
   std::sort(result.begin(), result.end(), [](const Result& a, const Result& b) {
-      return a.chisq > b.chisq; // keep your ordering
+      return a.chisq > b.chisq; // sort highest to lowest 
       });
 
   float minChi = result.back().chisq;   // smallest
   int nKeep; 
+  // If only gammajet, use 1, if global, use 2.3, if quad fit, use 3.53
+  float chisq_thresh = (!domulti ? 1.0 : 2.30);
+  if (use_quad) chisq_thresh = 3.53;
   for (int i = 0; i < result.size(); i++) {
-    if (result.at(i).chisq < minChi + 3.53) {
-    //if (result.at(i).chisq < minChi + 2.30) {
+    if (result.at(i).chisq < minChi + chisq_thresh) {
       nKeep = result.size() - i;
+      cout << "Found nkeep:" << nKeep << endl;
       break;
     }
   }
@@ -409,16 +408,13 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   std::fill(std::begin(yLow), std::end(yLow), FLT_MAX);
   float yHigh[nPoints] = { 0 };
   float xfunc[nPoints] = { 0 };
-  
+
   TLegend * leg2 = new TLegend(.15,.65,.45,.85);
   for (int i = result.size() - nKeep; i < result.size(); i++) {
 
-    float red = (maxChi - result.at(i).chisq) / (maxChi - minChi);
-    int color = TColor::GetColor(red, 0.0, 0.0);
-
     TF1 *func = new TF1(Form("tmp%i",i), "pol1", 0, 100);
     func->SetParameters(result.at(i).pa, result.at(i).pb);
-    
+
     for (int j = 0; j < nPoints; ++j) {
       double xi = 100.0/nPoints * j;
 
@@ -434,7 +430,9 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   }
   TF1 * func = new TF1("fbest","pol1",0,100);
   func->SetParameters(minpa,minpb);
-  
+
+  if (dogamma && !domulti) cout << minpa << "+" << yHigh[0] - minpa << "/-" << minpa - yLow[0] << endl;
+
   //cout << "Creating min and max functions" << endl;
   TGraph *gHigh = new TGraph(nPoints, xfunc, yHigh);
   TSpline3 *sHigh = new TSpline3("sHigh", gHigh);
@@ -443,7 +441,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
       return sHigh->Eval(xx[0]);
       }, 0, 100, 0);
 
-  
+
   TGraph *gLow = new TGraph(nPoints, xfunc, yLow);
   TSpline3 *sLow = new TSpline3("sLow", gLow);
   TF1 *fLow = new TF1("fLow",
@@ -463,7 +461,7 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   hstandardinsitu3->Write();
   hchisq->Write();
   hchisq2d->Write();
-  
+
   for(int i = 0; i < ana::nPtBins; i++) {
     hxj_MC[i]->Scale(1.0/hxj_MC[i]->Integral());
     hxj_data[i]->Scale(1.0/hxj_data[i]->Integral());
@@ -480,5 +478,5 @@ void grid_insitu_linear(const char * form = "nominal", int ir = 2) {
   wf->Close();
 
 }
-  
+
   
