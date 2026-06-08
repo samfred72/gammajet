@@ -4,7 +4,7 @@
 
 void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
   const char * rname = ana::rnames[ir];
-  TFile * fl = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_%s_%s.root",form,rname));
+  TFile * fl = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_%s_%s.root",form,rname));
   TFile * fq = TFile::Open("/home/samson72/sphnx/gammajet/hists/insitu_fit_quad.root");
   TH1D * hs = (TH1D*)fl->Get("hstandardinsitu"); //s for standard, l for linear, q for quadratic
   TH1D * hs3 = (TH1D*)fl->Get("hstandardinsitu3");
@@ -54,7 +54,7 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
       Form("Jet R=%1.1f", ana::JetRs[ir]),
       },.20,.83,21, 700);
 
-  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/corrected_insitu_gammajet_%s_%s.pdf", form, rname));
+  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/note/corrected_insitu_gammajet_%s_%s.pdf", form, rname));
   
   TCanvas * c3 = new TCanvas("c3","",700,700);
   gPad->SetTicks(1,1);
@@ -92,7 +92,7 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
       Form("Jet R=%1.1f",ana::JetRs[ir])
       },.20,.83,21, 700);
 
-  c3->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/corrected_insitu_multijet_%s_%s.pdf", form, rname));
+  c3->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/note/corrected_insitu_multijet_%s_%s.pdf", form, rname));
 
 
 

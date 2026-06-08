@@ -33,27 +33,29 @@ void draw_global_systematics(int ir=2, int type=3) {
 
   const char * rname = ana::rnames[ir];
   rname = "R04";
-  float model_vals[ana::nJetR] = {0.988913, 0.993021, 1.0037, 1.01463, 1.02418, 1.03006, 1.03702};
+  float model_vals[ana::nJetR] = {0.9767, 0.9746, 0.9990, 1.0139, 1.0327, 1.0420, 1.0513};
   float model_sys[ana::nJetR];
   for (int i = 0; i < ana::nJetR; i++) {
-    float val0 = fabs(1-1.0037)/2.0;
+    float val0 = fabs(1-model_vals[2])/2.0;
     float val = fabs(1-model_vals[i])/2.0;
     model_sys[i] = TMath::Sqrt(fabs(val0*val0 - val*val));
     cout << model_sys[i] << endl;
   }
-  TFile * fn = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_nominal_%s.root",rname));//rname));
-  TFile * fb = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_bdt_%s.root"    ,rname));//rname));
-  TFile * fi = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_iso_%s.root"    ,rname));//rname));
-  TFile * f3 = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_3jet_%s.root"   ,rname));//rname));
-  TFile * fh = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_JERhigh_%s.root",rname));//rname));
-  TFile * fl = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_JERlow_%s.root" ,rname));//rname));
-  TFile * fH = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_HERWIG_%s.root" ,rname));//rname));
+  TFile * fn  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal_%s.root"  ,rname));
+  TFile * fb  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_bdt_%s.root"      ,rname));
+  TFile * fi  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_iso_%s.root"      ,rname));
+  TFile * f3  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_3jet_%s.root"     ,rname));
+  TFile * fh  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_JERhigh_%s.root"  ,rname));
+  TFile * fl  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_JERlow_%s.root"   ,rname));
+  TFile * fsh = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_scalehigh_%s.root",rname));
+  TFile * fsl = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_scalelow_%s.root" ,rname));
+  TFile * fH  = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_HERWIG_%s.root"   ,rname));
   rname = ana::rnames[ir];
-  const int nfiles = 7;
-  TFile * f[nfiles] = {fn,fb,fi,f3,fh,fl,fH};
+  const int nfiles = 9;
+  TFile * f[nfiles] = {fn,fb,fi,f3,fh,fl,fsh,fsl,fH};
   TF1 * func[nfiles];
-  int colors[nfiles] = {kBlack, kBlue, kRed, kGreen, kOrange, kMagenta, kCyan};
-  string info[nfiles] = {"Nominal","Narrow BDT", "Narrow Isolation", "Third Jet Cut", "High JER Smearing", "Low JER Smearing", "Model Dependence"};
+  int colors[nfiles] = {kBlack, kBlue, kRed, kGreen, kOrange, kMagenta, kMagenta+2, kOrange+2, kCyan};
+  string info[nfiles] = {"Nominal","Narrow BDT", "Narrow Isolation", "Third Jet Cut", "High JER Smearing", "Low JER Smearing", "High EM Scale", "Low EM Scale", "Model Dependence"};
     
 
   TCanvas * c = new TCanvas("c","",700,700);
@@ -90,6 +92,7 @@ void draw_global_systematics(int ir=2, int type=3) {
 
   TLegend * lbottom = new TLegend(0.17,0.6,0.55,0.89);
   TF1 * ratios[nfiles-1];
+  TF1 * ratios_sym[nfiles-1];
   for (int i = 1; i < nfiles; i++) {
     TF1 * ratio = new TF1(Form("r%i",i), // The ratio is relative to the pythia result, because we assume the systematics to be uncorrelated to the model
         [=](double *x, double *) {
@@ -103,16 +106,35 @@ void draw_global_systematics(int ir=2, int type=3) {
     if (i == 1) {
       ratios[i-1]->SetTitle("");
       ratios[i-1]->GetYaxis()->SetRangeUser(-0.1,0.2);
+      ratios[i-1]->GetXaxis()->SetRangeUser(10,60);
       ratios[i-1]->GetYaxis()->SetTitle("Relative Uncertainty");
       ratios[i-1]->GetXaxis()->SetTitle("jet p_{T} [GeV]");
       ratios[i-1]->GetXaxis()->SetTitleOffset(1.3);
       ratios[i-1]->Draw();
     }
     else ratios[i-1]->Draw("same");
-    lbottom->AddEntry(ratios[i-1],info[i].c_str());
+
+    ratios_sym[i-1] =new TF1(Form("r_sym%i",i),
+        [=](double*x, double *) {
+        return -ratios[i-1]->Eval(x[0]);
+        }, 0, 100, 0);
+    ratios_sym[i-1]->SetLineColor(colors[i]);
+    ratios_sym[i-1]->SetLineWidth(2);
+    ratios_sym[i-1]->SetLineStyle(7);
+    
+    bool isJER = (i-1 == 3 || i-1 == 4 || i-1 == 5 || i-1 == 6);
+    bool isHERWIG = (i-1 == 7);
+    bool forceSym = (type == 2 || type == 3) && isHERWIG;
+    if ((sym && !isJER) || forceSym) ratios_sym[i-1]->Draw("same");
+
+    lbottom->AddEntry(ratios[i-1],info[i].c_str(),"L");
   }
-  lbottom->SetLineWidth(0);
-  lbottom->Draw();
+
+  TLine * l = new TLine(0,0,1,1);
+  l->SetLineStyle(7);
+  l->SetLineColor(kGray+1);
+  l->SetLineWidth(2);
+  lbottom->AddEntry(l, "Symmeterized Systematic","L");
 
   // The systematic uncertanty with nothing symmeterized except the model
   TF1 * systematic_up = new TF1("fsystematic_up",
@@ -120,8 +142,8 @@ void draw_global_systematics(int ir=2, int type=3) {
       double val = 0;
       for (int i = 0; i < nfiles - 1; i++ ) { 
         double r = ratios[i]->Eval(x[0]);
-        bool isJER = (i == 3 || i == 4);
-        bool isHERWIG = (i == 5);
+        bool isJER = (i == 3 || i == 4 || i == 5 || i == 6);
+        bool isHERWIG = (i == 7);
         bool forceSym = (type == 2 || type == 3) && isHERWIG;
 
         if ((sym && !isJER) || forceSym ) {
@@ -142,8 +164,8 @@ void draw_global_systematics(int ir=2, int type=3) {
       double val = 0;
       for (int i = 0; i < nfiles - 1; i++ ) { 
         double r = ratios[i]->Eval(x[0]);
-        bool isJER = (i == 3 || i == 4);
-        bool isHERWIG = (i == 5);
+        bool isJER = (i == 3 || i == 4 || i == 5 || i == 6);
+        bool isHERWIG = (i == 7);
         bool forceSym = (type == 2 || type == 3) && isHERWIG;
 
         if ((sym && !isJER) || forceSym ) {
@@ -172,7 +194,11 @@ void draw_global_systematics(int ir=2, int type=3) {
   
   d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta| < %1.1f", 1.1 - ana::JetRs[ir]),Form("Jet R=%1.1f",ana::JetRs[ir])},.55,.83,20, 700);
   
-  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/global_systematic_%s%s.pdf",rname,filetag));
+  lbottom->AddEntry(systematic_up,"Total Systematic");
+  lbottom->SetLineWidth(0);
+  lbottom->Draw();
+  
+  c->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/note/global_systematic_%s%s.pdf",rname,filetag));
   
   TCanvas * c2 = new TCanvas("c2","",700,700);
   // Drawing fits
@@ -184,10 +210,10 @@ void draw_global_systematics(int ir=2, int type=3) {
   tl->SetBranchAddress("chisq",&chisql);
   tl->GetEntry(0);
 
-  float xmin = 5;
-  float xmax = 100;
-  float ymin = 0.9;
-  float ymax = 1.15;
+  float xmin = 10;
+  float xmax = 60;
+  float ymin = 0.85;
+  float ymax = 1.10;
   TH1F* frame2 = c2->DrawFrame(xmin, ymin, xmax, ymax);
   frame2->GetXaxis()->SetTitle("jet p_{T} [GeV]");
   frame2->GetYaxis()->SetTitle("#it{in situ} JES correction");
@@ -298,10 +324,10 @@ void draw_global_systematics(int ir=2, int type=3) {
   linelow->Draw("same");
 
   TLegend * leg2 = new TLegend(0.2,0.15,0.6,0.3);
-  leg2->AddEntry(bandl, "statistical uncertainty");
+  leg2->AddEntry(bandl, "statistical uncertainty","FL");
   //leg2->AddEntry(bandl, Form("#splitline{%.3f + %.1e*pT}{#chi^{2} = %.2f}", flb->GetParameter(0), flb->GetParameter(1), chisql));
-  leg2->AddEntry(bands, Form("systematic uncertainty"));
-  leg2->AddEntry(linehigh, Form("total uncertainty"));
+  leg2->AddEntry(bands, Form("systematic uncertainty"),"FL");
+  leg2->AddEntry(linehigh, Form("total uncertainty"),"FL");
   
   leg2->SetLineWidth(0);
   leg2->SetFillStyle(0);
@@ -310,7 +336,7 @@ void draw_global_systematics(int ir=2, int type=3) {
   d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta| < %1.1f",1.1 - ana::JetRs[ir]), Form("Jet R=%1.1f",ana::JetRs[ir])},.2,.83,20, 700);
   //d.drawAll({"p + p #sqrt{s} = 200 GeV"},{"|vz| < 60 cm", Form("|#eta| < %1.1f",1.1 - ana::JetRs[ir]), Form("#it{in situ} correction: %.3f + %.1e*pT", (flb->GetParameter(0)+func[nfiles-1]->GetParameter(0))/2.0, (flb->GetParameter(1)+func[nfiles-1]->GetParameter(1))/2.0),Form("Jet R=%1.1f",ana::JetRs[ir])},.2,.83,20, 700);
 
-  c2->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/global_insitu_%s%s.pdf",rname,filetag));
+  c2->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/note/global_insitu_%s%s.pdf",rname,filetag));
 
   TFile * ff = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/funcs_insitu_%s.root",rname),"RECREATE");
   faverage->SetName("finsitu");

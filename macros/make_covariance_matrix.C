@@ -1,5 +1,5 @@
 void make_covariance_matrix() {
-  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_nominal_R04.root","READ");
+  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal_R04.root","READ");
   TH2D * h2 = (TH2D*)f->Get("hchisq2d");
   
   // -----------------------------
@@ -106,17 +106,28 @@ void make_covariance_matrix() {
   double best_pa = h2->GetXaxis()->GetBinCenter(minBinX);
   double best_pb = h2->GetYaxis()->GetBinCenter(minBinY);
 
+  for (int ix = 1; ix <= h2->GetNbinsX(); ++ix) {
+    for (int iy = 1; iy <= h2->GetNbinsY(); ++iy) {
+      double val = h2->GetBinContent(ix, iy);
+      double newval = val-minChi;
+      if (newval <= 0) newval = 0.1;
+      h2->SetBinContent(ix, iy, newval);
+    }
+  }
+
   // -----------------------------
   // Canvas
   // -----------------------------
   TCanvas *c = new TCanvas("c_chi2","chi2 surface",800,700);
   gPad->SetLeftMargin(.17);
-  gPad->SetRightMargin(.15);
+  gPad->SetRightMargin(.20);
   gPad->SetBottomMargin(.15);
   gPad->SetTicks(1,1);
+  gPad->SetLogz();
+  h2->GetZaxis()->SetTitleOffset(1.5);
 
   // Draw heatmap
-  h2->SetTitle(";p_{a};p_{b};#chi^{2}");
+  h2->SetTitle(";a;b [GeV^{-1}];#Delta#chi^{2}=#chi^{2}-#chi^{2}_{min}");
   h2->Draw("COLZ");
 
   // -----------------------------
@@ -128,9 +139,9 @@ void make_covariance_matrix() {
   m->Draw("SAME");
 
   // -----------------------------
-  // Draw 1σ contour (Δχ² = 2.30)
+  // Draw 1σ contour (Δχ² = 2.3)
   // -----------------------------
-  double level = minChi + 2.30;
+  double level = 2.3;
 
   // Clone histogram for contour drawing
   TH2D *hcont = (TH2D*)h2->Clone("hcont");
@@ -145,7 +156,7 @@ void make_covariance_matrix() {
   // -----------------------------
   // Legend
   // -----------------------------
-  TLegend *leg = new TLegend(0.20,0.75,0.45,0.88);
+  TLegend *leg = new TLegend(0.52,0.75,0.77,0.88);
   leg->AddEntry(m, "Best fit", "p");
   leg->AddEntry(hcont, "1#sigma contour", "l");
   leg->Draw();
@@ -157,4 +168,8 @@ void make_covariance_matrix() {
   cout << "pa = " << best_pa << endl;
   cout << "pb = " << best_pb << endl;
   cout << "chi2 = " << minChi << endl;
+
+
+  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/note/covariance_matrix.pdf");
+  
 }

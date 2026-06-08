@@ -66,7 +66,7 @@ vector<bool> treeuser::check_keep_MC(float pt_pho, float pt_reco_pho, float pt_j
   //std::cout << "Form keep: " << !isphoton << " " << trigger << " " << pt_reco_pho << std::endl;
   for (int i = 0; i < ana::nJetR; i++) {
     keep[i] = (isphoton ? 1 : (pt_jet[i] > threshmap[i][trigger] && pt_jet[i] < threshmap_high[i][trigger]));// && pt_reco[i] < reco_threshmap_high[i][trigger]));
-    //if (!isphoton && trigger == "Jet5"  && pt_reco_pho > 12) keep[i] = 0;
+    if (!isphoton && trigger == "Jet5"  && pt_reco_pho > 12) keep[i] = 0;
     //if (!isphoton && trigger == "Jet8" && pt_reco_pho > 17) keep[i] = 0;
   }
 

@@ -147,6 +147,16 @@ class histmaker : public treeuser {
           outtree_JERlow[ir]->Branch("jet_pt", &outtree_jet_pt_JERlow[ir]);
           outtree_JERlow[ir]->Branch("weight", &outtree_weight_JERlow[ir]);
           
+          outtree_scalelow[ir] = new TTree(Form("xjtree_scalelow_%i",ir),"");
+          outtree_scalelow[ir]->Branch("pho_pt", &outtree_pho_pt_scalelow[ir]);
+          outtree_scalelow[ir]->Branch("jet_pt", &outtree_jet_pt_scalelow[ir]);
+          outtree_scalelow[ir]->Branch("weight", &outtree_weight_scalelow[ir]);
+          
+          outtree_scalehigh[ir] = new TTree(Form("xjtree_scalehigh_%i",ir),"");
+          outtree_scalehigh[ir]->Branch("pho_pt", &outtree_pho_pt_scalehigh[ir]);
+          outtree_scalehigh[ir]->Branch("jet_pt", &outtree_jet_pt_scalehigh[ir]);
+          outtree_scalehigh[ir]->Branch("weight", &outtree_weight_scalehigh[ir]);
+          
           outtree_forjin[ir] = new TTree(Form("xjtree_forjin_%i",ir),"");
           outtree_forjin[ir]->Branch("pho_pt", &outtree_pho_pt_forjin[ir]);
           outtree_forjin[ir]->Branch("jet_pt", &outtree_jet_pt_forjin[ir]);
@@ -226,6 +236,16 @@ class histmaker : public treeuser {
     float outtree_pho_pt_JERlow[ana::nJetR];
     float outtree_jet_pt_JERlow[ana::nJetR];
     float outtree_weight_JERlow[ana::nJetR];
+    
+    TTree * outtree_scalelow[ana::nJetR];
+    float outtree_pho_pt_scalelow[ana::nJetR];
+    float outtree_jet_pt_scalelow[ana::nJetR];
+    float outtree_weight_scalelow[ana::nJetR];
+    
+    TTree * outtree_scalehigh[ana::nJetR];
+    float outtree_pho_pt_scalehigh[ana::nJetR];
+    float outtree_jet_pt_scalehigh[ana::nJetR];
+    float outtree_weight_scalehigh[ana::nJetR];
     
     TTree * outtree_forjin[ana::nJetR];
     double outtree_pho_pt_forjin[ana::nJetR];

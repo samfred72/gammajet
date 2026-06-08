@@ -49,10 +49,10 @@ struct xjgroup get_hists(int itype, int icalib, int iib, int i3jet, int iabcd, d
       TF1 * func = d.fit(hist, 0, 2, "RMQI0");
       float funcmean = func->GetParameter(1);
       float funcerr = func->GetParError(1);
-              
-      if (strcmp(sim,"herwig") == 0) itype += 2; 
-      d.format(hist,itype);
-      d.format(func,itype);
+      int iformat = itype; 
+      if (strcmp(sim,"herwig") == 0) iformat += 1; 
+      d.format(hist,iformat);
+      d.format(func,iformat);
 
       group.hists     [ipt][ir] = hist;
       group.histmeans [ipt][ir] = mean;
@@ -124,7 +124,7 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
       int index = ipt + 1 + offset;
       if (index % (nx+1) == 0) {index++; offset++;}
       p->cd(index);
-      gPad->SetRightMargin(0.01);
+      gPad->SetRightMargin(0.02);
       gPad->SetTicks(1,1);
       if ((ipt) < nx*(ny-1)) gPad->SetBottomMargin(0.04);
       gPad->SetTopMargin(0.01);
@@ -135,7 +135,9 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
       h1->GetXaxis()->SetLabelSize(0.08);
       if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
       if (ipt < nx*(ny-1) ) h1->GetXaxis()->SetLabelSize(0.00);
-      h1->GetYaxis()->ChangeLabel(-1,-1,0);
+      h1->GetXaxis()->SetNdivisions(406);
+      h1->GetYaxis()->SetNdivisions(406);
+      //if (index != 1) h1->GetYaxis()->ChangeLabel(-1,-1,0);
       if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
       if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
       else h1->GetYaxis()->SetTitle("");
@@ -147,7 +149,7 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
       h1->GetYaxis()->SetMaxDigits(3);
       h1->GetYaxis()->SetDecimals(2);
 
-      h1->Draw("hist same");
+      h1->Draw("hist e1 same");
       h2->Draw("hist same");
 
       float drawx = 0.15;
@@ -155,9 +157,9 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
       if ((index - 1) % 4 == 0) drawx = 0.35;
       if (ipt < 2*nx) drawy_temp = 0.83;
       d.drawMany({
-          Form("#bf{%.0f GeV < p_{T}^{lead} < %.0f GeV}",ana::ptBins[ipt],ana::ptBins[ipt+1]),
-          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  g1.histmeans[ipt][ir], g1.histerrs[ipt][ir]),
-          Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  g2.histmeans[ipt][ir], g2.histerrs[ipt][ir])
+          Form("#bf{%.0f GeV < p_{T}^{#gamma} < %.0f GeV}",ana::ptBins[ipt],ana::ptBins[ipt+1]),
+          //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  g1.histmeans[ipt][ir], g1.histerrs[ipt][ir]),
+          //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  g2.histmeans[ipt][ir], g2.histerrs[ipt][ir])
           },drawx,drawy_temp,42,c->GetWh()/3.0);
       TLine * mline1 = new TLine(g1.histmeans[ipt][ir],0,g1.histmeans[ipt][ir],0.15);
       mline1->SetLineColor(h1->GetLineColor());
@@ -167,6 +169,19 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
       mline2->SetLineStyle(7);
       mline1->Draw();
       mline2->Draw();
+
+      if (ir == 2) {
+        float m1 = g1.histmeans[ipt][ir];
+        float m2 = g2.histmeans[ipt][ir];
+        float e1 = g1.histerrs[ipt][ir];
+        float e2 = g2.histerrs[ipt][ir];
+        float err = (m1/m2) * sqrt( (e1/m1)*(e1/m1) + (e2/m2)*(e2/m2) );
+
+        cout << ana::ptBins[ipt] << "-" << ana::ptBins[ipt+1] << std::fixed << std::setprecision(3) << " \\GeV & " 
+          << m1 << " $\\pm$ " << e1 << " \\GeV & " 
+          << m2 << " $\\pm$ " << e2 << " \\GeV & " 
+          << m1/m2 << " $\\pm$ " << err << " \\\\ " << std::defaultfloat << endl;
+      }
     }
     p->cd();
     if (strcmp(variation, "Nominal") == 0) variation = "";
@@ -177,6 +192,7 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
         {
         //"Analysis cuts",
         Form("Jet R=%1.1f",ana::JetRs[ir]),
+        Form("#Delta#phi < %1.0f#pi/%1.0f",ana::oppnum,ana::oppden),
         variation,
         //calibstring,
         //t1[iabcd1].c_str()
@@ -277,15 +293,31 @@ void draw_one(const char * cname, const char * info1, const char * info2, int ip
   return;
 }
 
-void comp_axj(const char * cname, const char * info1, const char * info2, const char * variation,
-    struct xjgroup g1, 
-    struct xjgroup g2,
+vector<vector<float>> comp_axj(const char * cname, const char * info1, const char * info2, const char * variation,
+    const char * fitfilestem,
     drawer &d) {
   int csize = 1000;
   TCanvas * c = new TCanvas("c","",csize,csize);
   c->SaveAs(Form("%s[",cname));
+
+  vector<vector<float>> xj(8,vector<float>(3));
   
   for (int ir = 0; ir < ana::nJetR; ir++) {
+    const char * fitfilename = Form("%s_%s_gammajet.root",fitfilestem,ana::rnames[ir]);
+    TFile * infile = TFile::Open(fitfilename,"READ");
+    
+    TH1D * hMC = new TH1D("hMC",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    TH1D * hdata = new TH1D("hdata",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    TH1D * hcorrected = new TH1D("hcorrected",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+      hMC->SetBinContent(ipt+1, ((TH1D*)infile->Get(Form("hxj_MC_%i",ipt)))->GetMean());
+      hdata->SetBinContent(ipt+1, ((TH1D*)infile->Get(Form("hxj_data_%i",ipt)))->GetMean());
+      hcorrected->SetBinContent(ipt+1, ((TH1D*)infile->Get(Form("hxj_corrected_%i",ipt)))->GetMean());
+      hMC->SetBinError(ipt+1, ((TH1D*)infile->Get(Form("hxj_MC_%i",ipt)))->GetMeanError());
+      hdata->SetBinError(ipt+1, ((TH1D*)infile->Get(Form("hxj_data_%i",ipt)))->GetMeanError());
+      hcorrected->SetBinError(ipt+1, ((TH1D*)infile->Get(Form("hxj_corrected_%i",ipt)))->GetMeanError());
+    }
+
     TPad * p1 = new TPad("p1","",0,.6,1,1);
     TPad * p2 = new TPad("p2","",0,0,1,0.6);
     p1->Draw();
@@ -297,31 +329,27 @@ void comp_axj(const char * cname, const char * info1, const char * info2, const 
     gPad->SetBottomMargin(0.03);
     TLegend * lxj = new TLegend(.16,.65,.47,.85);
     lxj->SetLineWidth(0);
-    TH1D * h1 = new TH1D(Form("h_%s_%s",info1,g1.hists[0][ir]->GetName()),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    TH1D * h2 = new TH1D(Form("h_%s_%s",info2,g2.hists[0][ir]->GetName()),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    h1->SetLineColor(g1.hists[0][ir]->GetLineColor());
-    h2->SetLineColor(g2.hists[0][ir]->GetLineColor());
-    h1->SetMarkerColor(g1.hists[0][ir]->GetMarkerColor());
-    h2->SetMarkerColor(g2.hists[0][ir]->GetMarkerColor());
-    
-    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-      h1->SetBinContent(ipt+1,g1.histmeans[ipt][ir]);
-      h2->SetBinContent(ipt+1,g2.histmeans[ipt][ir]);
-      h1->SetBinError(ipt+1  ,g1.histerrs [ipt][ir]);
-      h2->SetBinError(ipt+1  ,g2.histerrs [ipt][ir]);
+
+
+
+    hdata->SetMarkerColor(kBlue); hdata->SetLineColor(kBlue);
+    hMC->SetMarkerColor(kMagenta+1); hMC->SetLineColor(kMagenta+1);
+    if (strcmp(variation,"Herwig") == 0) {
+      hMC->SetMarkerColor(kSpring-1); hMC->SetLineColor(kSpring-1);
     }
+
     
-    h1->GetYaxis()->SetRangeUser(0,2);
-    h1->GetYaxis()->SetTitleSize(0.09);
-    h1->GetYaxis()->SetLabelSize(0.08);
-    h1->GetYaxis()->SetTitleOffset(0.5);
-    h1->SetMarkerStyle(20);
-    h1->GetXaxis()->SetLabelSize(0);
-    h2->SetMarkerStyle(20);
-    h1->Draw("p");
-    h2->Draw("p same");
-    lxj->AddEntry(h1,info1);
-    lxj->AddEntry(h2,info2);
+    hdata->GetYaxis()->SetRangeUser(0,2);
+    hdata->GetYaxis()->SetTitleSize(0.09);
+    hdata->GetYaxis()->SetLabelSize(0.08);
+    hdata->GetYaxis()->SetTitleOffset(0.5);
+    hdata->SetMarkerStyle(20);
+    hdata->GetXaxis()->SetLabelSize(0);
+    hMC->SetMarkerStyle(20);
+    hdata->Draw("p");
+    hMC->Draw("p same");
+    lxj->AddEntry(hdata,info1);
+    lxj->AddEntry(hMC,info2);
     lxj->Draw("same");
     //const char * fittext = (usefit ? "Fit method" : "Mean method");
     d.drawAll(
@@ -344,15 +372,15 @@ void comp_axj(const char * cname, const char * info1, const char * info2, const 
     gPad->SetBottomMargin(0.2);
     gPad->SetTopMargin(0.02);
     gPad->SetTicks(1,1);
-    TH1D * dummy = (TH1D*)h1->Clone();
+    TH1D * dummy = (TH1D*)hdata->Clone();
     dummy->SetName(Form("d%i",ir));
     dummy->Reset("ICES");
 
-    dummy->GetYaxis()->SetTitle("Ratio to Data");
+    dummy->GetYaxis()->SetTitle("Data / MC");
     dummy->GetYaxis()->SetTitleSize(0.07);
     dummy->GetYaxis()->SetLabelSize(0.05);
     dummy->GetYaxis()->SetTitleOffset(0.7);
-    dummy->GetYaxis()->SetRangeUser(.9,1.1);
+    dummy->GetYaxis()->SetRangeUser(.88,1.08);
 
     dummy->GetXaxis()->SetTitle("p_{T}^{#gamma} [GeV]");
     dummy->GetXaxis()->SetLabelSize(0.06);
@@ -360,149 +388,96 @@ void comp_axj(const char * cname, const char * info1, const char * info2, const 
     dummy->GetXaxis()->SetTitleOffset(1);
 
     dummy->Draw();
-    TH1D * hdivide = (TH1D*)h1->Clone();
-    hdivide->SetName(Form("hdivide%i",ir));
-    hdivide->Divide(h1,h2);
-    hdivide->SetMarkerColor(kBlack);
-    hdivide->SetLineColor(kBlack);
-    hdivide->SetMarkerStyle(20);
-    hdivide->SetMarkerSize(1);
-    hdivide->Draw("same");
+    TH1D * hdivide_data = (TH1D*)hdata->Clone(Form("hdivide_data%i",ir));
+    hdivide_data->Divide(hdata,hMC);
+    hdivide_data->SetMarkerColor(kBlack);
+    hdivide_data->SetLineColor(kBlack);
+    hdivide_data->SetMarkerStyle(24);
+    hdivide_data->SetMarkerSize(1);
+    hdivide_data->Draw("same");
+    TH1D * hdivide_corrected = (TH1D*)hdata->Clone(Form("hdivide_corrected%i",ir));
+    hdivide_corrected->Divide(hcorrected,hMC);
+    hdivide_corrected->SetMarkerColor(kBlack);
+    hdivide_corrected->SetLineColor(kBlack);
+    hdivide_corrected->SetMarkerStyle(20);
+    hdivide_corrected->SetMarkerSize(1);
+    hdivide_corrected->Draw("same");
+
     d.drawLine(ana::ptBins[0],1,ana::ptBins[ana::nPtBins],1); 
     
-    TBox *texclude2 = new TBox(10,0.8,13.0,1.2);
-    texclude2->SetFillColorAlpha(kGray,0.3);
-    //texclude2->Draw("same");
-
-    TF1 * fline = new TF1(Form("func_%s",cname),"pol0",10,35);
-    hdivide->Fit(fline,"RQIM0");
+    TF1 * fline = (TF1*)infile->Get("fbest");
     fline->SetLineStyle(9);
     fline->SetLineWidth(3);
-    fline->Draw("same");
+    //fline->Draw("same");
     
-    float flow = fline->GetParameter(0) - fline->GetParError(0);
-    float fhigh = fline->GetParameter(0) + fline->GetParError(0);
+    TF1 * fHigh = (TF1*)infile->Get("fHigh");
+    TF1 * fLow = (TF1*)infile->Get("fLow");
+    
+    float fbest = fline->GetParameter(0);
+    float flow = fLow->Eval(0);
+    float fhigh = fHigh->Eval(0);
     TBox *terr = new TBox(10,flow,35,fhigh);
     terr->SetFillColorAlpha(kRed,0.3);
-    terr->Draw("same");
+    //terr->Draw("same");
 
-    if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),.25,.89,kRed,40);
-    d.drawText(Form("#bf{Constant Fit = %2.4f #pm %2.4f}",fline->GetParameter(0), fline->GetParError(0)),.20,.82,kRed,40);
-    //d.drawText(Form("#bf{#it{in situ} JES = %2.4f #pm %2.4f}",fline->GetParameter(0), fline->GetParError(0)),.25,.82,kRed,40);
+    xj[ir][0] = flow-fbest;
+    xj[ir][1] = fbest;
+    xj[ir][2] = fhigh-fbest;
+
+    float drawx = 0.20;
+    float drawy = 0.82;
+    if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),drawx,drawy+0.07,kRed,40);
+    d.drawText(Form("#bf{global #it{in situ} a = %2.4f ^{+%2.4f}_{-%2.4f}}",fbest, fhigh-fbest, fbest-flow),drawx,drawy,kRed,40);
+    TLegend * ldivide = new TLegend(0.17, 0.24, .6, 0.44);
+    ldivide->AddEntry(hdivide_data,"Uncorrected ratio");
+    ldivide->AddEntry(hdivide_corrected,"Corrected ratio");
+    ldivide->SetLineWidth(0);
+    ldivide->Draw();
 
     c->SaveAs(cname);
     c->Clear();
   }
   c->SaveAs(Form("%s]",cname));
-  g1.clear();
-  g2.clear();
   delete c;
-  return;
+  return xj;
 }
-/*
-void comp_comp_axj(TCanvas * c, const char * cname, const char * variation, bool usefit,
-              int type1, int icalib1, int ibdt1, int i3jet1, int iabcd1, string info1, int color1, 
-              int type2, int icalib2, int ibdt2, int i3jet2, int iabcd2, string info2, int color2) {
-  c->cd();
-  vector<vector<vector<vector<vector<vector<TH1D *>>>>>> H1;
-  vector<vector<vector<vector<vector<vector<TH1D *>>>>>> H2; 
-  vector<vector<vector<vector<vector<vector<TF1 *>>>>>> f1;
-  vector<vector<vector<vector<vector<vector<TF1 *>>>>>> f2; 
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> mean2;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr1;
-  vector<vector<vector<vector<vector<vector<float>>>>>> merr2;
-  if (type1 == 0) {
-    H1 = hratiod;
-    f1 = fitd;
-    mean1 = meand;
-    merr1 = merrd;
-  }
-  else if (type1 == 1) {
-    H1 = hratiop;
-    f1 = fitp;
-    mean1 = meanp;
-    merr1 = merrp;
-  }
-  else if (type1 == 2) {
-    H1 = hratioj;
-    f1 = fitj;
-    mean1 = meanj;
-    merr1 = merrj;
-  }
-  else if (type1 == 3) {
-    H1 = hratioh;
-    f1 = fith;
-    mean1 = meanh;
-    merr1 = merrh;
-  }
-  if (type2 == 0) {
-    H2 = hratiod;
-    f2 = fitd;
-    mean2 = meand;
-    merr2 = merrd;
-  }
-  else if (type2 == 1) {
-    H2 = hratiop;
-    f2 = fitp;
-    mean2 = meanp;
-    merr2 = merrp;
-  }
-  else if (type2 == 2) {
-    H2 = hratioj;
-    f2 = fitj;
-    mean2 = meanj;
-    merr2 = merrj;
-  }
-  else if (type2 == 3) {
-    H2 = hratioh;
-    f2 = fith;
-    mean2 = meanh;
-    merr2 = merrh;
-  }
+
+vector<float> comp_comp_axj(const char * cname, const char * info1, const char * info2, const char * variation,
+    const char * fitfilestem,
+    drawer &d) {
+  TCanvas * c = new TCanvas("c","",1000,600);
+    
+  vector<float> sys_xj(8);
   c->SaveAs(Form("%s[",cname));
   for (int ir = 0; ir < ana::nJetR; ir++) {
+    const char * defaultfitfilename = Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal_%s_gammajet.root",ana::rnames[ir]);
+    const char * fitfilename = Form("%s_%s_gammajet.root",fitfilestem,ana::rnames[ir]);
+    TFile * defaultinfile = TFile::Open(defaultfitfilename,"READ");
+    TFile * infile = TFile::Open(fitfilename,"READ");
+
+    TH1D * hdefaultMC = new TH1D("hdefaultMC",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    TH1D * hdefaultdata = new TH1D("hdefaultdata",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    TH1D * hMC = new TH1D("hMC",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+    TH1D * hdata = new TH1D("hdata",";<x_{J#gamma}>;",ana::nPtBins,ana::ptBins);
+
     gPad->SetTicks(1,1);
-    TH1D * h1 = new TH1D(Form("hc_%s_%s_%s_%i",info1.c_str(),variation,H1[0][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    TH1D * h2 = new TH1D(Form("hc_%s_%s_%s_%i",info2.c_str(),variation,H1[0][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
     for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-      if (usefit) {
-        h1->SetBinContent(ipt+1,f1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetParameter(1));
-        h2->SetBinContent(ipt+1,f2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetParameter(1));
-        h1->SetBinError(ipt+1,f1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetParError(1));
-        h2->SetBinError(ipt+1,f2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetParError(1));
-      }
-      else {
-        h1->SetBinContent(ipt+1,mean1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]);
-        h2->SetBinContent(ipt+1,mean2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]);
-        h1->SetBinError(ipt+1,merr1[ipt][ir][icalib1][ibdt1][i3jet1][iabcd1]);
-        h2->SetBinError(ipt+1,merr2[ipt][ir][icalib2][ibdt2][i3jet2][iabcd2]);
-      }
-    }
-    // c stands for "compare"
-    TH1D * h1c = new TH1D(Form("hcc_%s_%s_%s_%i",info1.c_str(),variation,H1[0][ir][icalib1][ibdt1][i3jet1][iabcd1]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    TH1D * h2c = new TH1D(Form("hcc_%s_%s_%s_%i",info2.c_str(),variation,H1[0][ir][icalib2][ibdt2][i3jet2][iabcd2]->GetName(),usefit),";;<x_{J#gamma}>",ana::nPtBins,ana::ptBins);
-    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-      if (usefit) {
-        h1c->SetBinContent(ipt+1,fitd[ipt][ir][3][0][0][0]->GetParameter(1));
-        h2c->SetBinContent(ipt+1,fitp[ipt][ir][3][0][0][0]->GetParameter(1));
-        h1c->SetBinError(ipt+1,fitd[ipt][ir][3][0][0][0]->GetParError(1));
-        h2c->SetBinError(ipt+1,fitp[ipt][ir][3][0][0][0]->GetParError(1));
-      }
-      else {
-        h1c->SetBinContent(ipt+1,meand[ipt][ir][3][0][0][0]);
-        h2c->SetBinContent(ipt+1,meanp[ipt][ir][3][0][0][0]);
-        h1c->SetBinError(ipt+1,merrd[ipt][ir][3][0][0][0]);
-        h2c->SetBinError(ipt+1,merrp[ipt][ir][3][0][0][0]);
-      }
+      hdefaultMC->SetBinContent(ipt+1,   ((TH1D*)defaultinfile->Get(Form("hxj_MC_%i",ipt)))->GetMean());
+      hdefaultdata->SetBinContent(ipt+1, ((TH1D*)defaultinfile->Get(Form("hxj_data_%i",ipt)))->GetMean());
+      hdefaultMC->SetBinError(ipt+1,     ((TH1D*)defaultinfile->Get(Form("hxj_MC_%i",ipt)))->GetMeanError());
+      hdefaultdata->SetBinError(ipt+1,   ((TH1D*)defaultinfile->Get(Form("hxj_data_%i",ipt)))->GetMeanError());
+      
+      hMC->SetBinContent(ipt+1,   ((TH1D*)infile->Get(Form("hxj_MC_%i",ipt)))->GetMean());
+      hdata->SetBinContent(ipt+1, ((TH1D*)infile->Get(Form("hxj_data_%i",ipt)))->GetMean());
+      hMC->SetBinError(ipt+1,     ((TH1D*)infile->Get(Form("hxj_MC_%i",ipt)))->GetMeanError());
+      hdata->SetBinError(ipt+1,   ((TH1D*)infile->Get(Form("hxj_data_%i",ipt)))->GetMeanError());
     }
     
-    TH1D * dummy = (TH1D*)h1->Clone();
-    dummy->SetName(Form("d%i",ir));
+    TH1D * dummy = (TH1D*)hdata->Clone(Form("d%i",ir));
     dummy->Reset("ICES");
 
     gPad->SetBottomMargin(.15);
-    dummy->GetYaxis()->SetTitle(Form("Double Ratio Data/MC to %s Data/MC",variation));
+    dummy->GetYaxis()->SetTitle("Ratio to Data");
     dummy->GetYaxis()->SetTitleSize(0.04);
     dummy->GetYaxis()->SetLabelSize(0.04);
     dummy->GetYaxis()->SetTitleOffset(1);
@@ -514,21 +489,33 @@ void comp_comp_axj(TCanvas * c, const char * cname, const char * variation, bool
     dummy->GetXaxis()->SetTitleOffset(1);
 
     dummy->Draw();
-    TH1D * hdivide1 = (TH1D*)h1->Clone();
-    hdivide1->SetName(Form("hdivide1%i",ir));
-    TH1D * hdivide2 = (TH1D*)h1->Clone();
-    hdivide2->SetName(Form("hdivide2%i",ir));
-    TH1D * hdivide = (TH1D*)h1->Clone();
-    hdivide->SetName(Form("hdivide%i",ir));
+    TH1D * hdivide1 = (TH1D*)hdata->Clone(Form("hdivide1%i",ir));
+    TH1D * hdivide2 = (TH1D*)hMC->Clone(Form("hdivide2%i",ir));
 
-    hdivide1->Divide(h1,h2);
-    hdivide2->Divide(h1c,h2c);
-    hdivide->Divide(hdivide1,hdivide2);
-    hdivide->SetMarkerColor(kBlack);
-    hdivide->SetLineColor(kBlack);
-    hdivide->SetMarkerStyle(21);
-    hdivide->SetMarkerSize(1);
-    hdivide->Draw("same");
+    hdivide1->Divide(hdefaultdata,hdefaultMC);
+    hdivide2->Divide(hdata,hMC);
+    
+    TGraphErrors * gdivide1 = new TGraphErrors();
+    TGraphErrors * gdivide2 = new TGraphErrors();
+
+    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
+      gdivide1->AddPoint((ana::ptBins[ipt] + ana::ptBins[ipt+1])/2.0, hdivide1->GetBinContent(ipt+1)); 
+      gdivide2->AddPoint((ana::ptBins[ipt] + ana::ptBins[ipt+1])/2.0, hdivide2->GetBinContent(ipt+1)); 
+      gdivide1->SetPointError(ipt, (ana::ptBins[ipt+1] - ana::ptBins[ipt])/2.0, hdivide1->GetBinError(ipt+1));
+      gdivide2->SetPointError(ipt, (ana::ptBins[ipt+1] - ana::ptBins[ipt])/2.0, hdivide2->GetBinError(ipt+1));
+    }
+    
+    gdivide1->SetLineColor(kBlack);
+    gdivide1->SetMarkerColor(kBlack);
+    gdivide1->SetMarkerStyle(20);
+    
+    gdivide2->SetLineColor(kBlue);
+    gdivide2->SetMarkerColor(kBlue);
+    gdivide2->SetMarkerStyle(20);
+
+    gdivide1->Draw("p same");
+    gdivide2->Draw("p same");
+
     d.drawLine(ana::ptBins[0],1,ana::ptBins[ana::nPtBins],1); 
     
     d.drawAll(
@@ -538,243 +525,63 @@ void comp_comp_axj(TCanvas * c, const char * cname, const char * variation, bool
         //"Analysis cuts",
         Form("Jet R=%0.1f",ana::JetRs[ir]), 
         },
-        .25, .8, 30, c->GetWh());
+        .17, .8, 30, c->GetWh());
     
-    TBox *texclude = new TBox(10,0.8,13.0,1.2);
-    texclude->SetFillColorAlpha(kGray,0.3);
-    //texclude->Draw("same");
+    TF1 * defaultfline = (TF1*)defaultinfile->Get("fbest");
+    TF1 * defaultfHigh = (TF1*)defaultinfile->Get("fHigh");
+    TF1 * defaultfLow  = (TF1*)defaultinfile->Get("fLow");
+    TF1 * fline = (TF1*)infile->Get("fbest");
+    TF1 * fHigh = (TF1*)infile->Get("fHigh");
+    TF1 * fLow  = (TF1*)infile->Get("fLow");
 
-    TF1 * fline = new TF1(Form("func_%s",variation),"pol0",10,35);
-    hdivide->Fit(fline,"RQIM0");
-    fline->SetLineColor(kSpring+2);
-    fline->SetLineStyle(9);
-    fline->SetLineWidth(3);
-    fline->Draw("same");
+    float defaultfbest = defaultfline->GetParameter(0);
+    float defaultfhigh = defaultfHigh->Eval(0) - defaultfbest;
+    float defaultflow  = defaultfbest - defaultfLow->Eval(0);
+    float fbest = fline->GetParameter(0);
+    float fhigh = fHigh->Eval(0) - fbest;
+    float flow  = fbest - fLow->Eval(0);
+
+    float rbest = fbest / defaultfbest;
+    float rhigh = (fbest + fhigh) / (defaultfbest - defaultflow) - rbest;
+    float rlow = rbest - (fbest - flow) / (defaultfbest + defaultfhigh);
+
+    if (strcmp(variation, "Herwig") == 0) {
+      vector<float> vals = {0.0116,
+        0.0127,
+        0.0000,
+        0.0069,
+        0.0163,
+        0.0210,
+        0.0256};
+      cout << ana::JetRs[ir] << fixed << setprecision(4) << " & $" << rbest << "^{+" << rhigh << "}_{-" << rlow << "}$ & " << vals[ir] << "\\\\" << std::defaultfloat << endl;
+    } 
     
-    float flow = fline->GetParameter(0) - fline->GetParError(0);
-    float fhigh = fline->GetParameter(0) + fline->GetParError(0);
-    TBox *terr = new TBox(10,flow,35,fhigh);
+    TLine * l = new TLine(10,rbest, 35, rbest);
+    l->SetLineWidth(3);
+    l->SetLineColor(kBlue);
+    l->SetLineStyle(9);
+    //l->Draw("same");
+    TBox *terr = new TBox(10,rlow,35,rhigh);
     terr->SetFillColorAlpha(kBlue,0.3);
-    terr->Draw("same");
+    //terr->Draw("same");
 
-    if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),.20,.25,kBlue,40);
-    d.drawText(Form("#bf{Relative #it{in situ} JES = %2.4f #pm %2.4f}",fline->GetParameter(0), fline->GetParError(0)),.20,.18,kBlue,40);
+    if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),.16,.25,kBlue,40);
+    d.drawText(Form("#bf{Relative Global #it{in situ} a = %2.4f ^{+%2.4f}_{-%2.4f}}",rbest, rhigh, rlow),.16,.18,kBlue,40);
+    
+    TLegend * leg = new TLegend(0.53,0.65,0.88,0.85);
+    leg->AddEntry(gdivide1,"Default #it{in situ} ratio");
+    leg->AddEntry(gdivide2,"Systematic #it{in situ} ratio");
+    leg->SetLineWidth(0);
+    leg->Draw();
 
     c->SaveAs(cname);
     c->Clear();
+    sys_xj[ir] = rbest-1;
   }
   c->SaveAs(Form("%s]",cname));
+  delete c;
+  return sys_xj;
 }
-*/
-
-/*
-void fillxj(bool usefit) {
-  for (int ir = 0; ir < ana::nJetR; ir++) {
-    TH1D * hd = new TH1D(Form("hxjd_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hp = new TH1D(Form("hxjp_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hh = new TH1D(Form("hxjh_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hdb = new TH1D(Form("hxjbd_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hpb = new TH1D(Form("hxjbp_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hhb = new TH1D(Form("hxjbh_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hd3 = new TH1D(Form("hxj3d_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hp3 = new TH1D(Form("hxj3p_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hh3 = new TH1D(Form("hxj3h_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hdi = new TH1D(Form("hxjid_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hpi = new TH1D(Form("hxjip_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hhi = new TH1D(Form("hxjih_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hdJH = new TH1D(Form("hxjJHd_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hpJH = new TH1D(Form("hxjJHp_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hhJH = new TH1D(Form("hxjJHh_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hdJL = new TH1D(Form("hxjJLd_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hpJL = new TH1D(Form("hxjJLp_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    TH1D * hhJL = new TH1D(Form("hxjJLh_%i_%i_fit",ir, usefit),";;<x_{J}>",ana::nPtBins,ana::ptBins);
-    for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
-      if (usefit) {
-        hd->SetBinContent(ipt+1,fitd[ipt][ir][3][0][0][0]->GetParameter(1));
-        hp->SetBinContent(ipt+1,fitp[ipt][ir][3][0][0][0]->GetParameter(1));
-        hh->SetBinContent(ipt+1,fith[ipt][ir][3][0][0][0]->GetParameter(1));
-        hd->SetBinError(  ipt+1,fitd[ipt][ir][3][0][0][0]->GetParError(1));
-        hp->SetBinError(  ipt+1,fitp[ipt][ir][3][0][0][0]->GetParError(1));
-        hh->SetBinError(  ipt+1,fith[ipt][ir][3][0][0][0]->GetParError(1));
-
-        hdb->SetBinContent(ipt+1,fitd[ipt][ir][3][1][0][0]->GetParameter(1));
-        hpb->SetBinContent(ipt+1,fitp[ipt][ir][3][1][0][0]->GetParameter(1));
-        hhb->SetBinContent(ipt+1,fith[ipt][ir][3][1][0][0]->GetParameter(1));
-        hdb->SetBinError(  ipt+1,fitd[ipt][ir][3][1][0][0]->GetParError(1));
-        hpb->SetBinError(  ipt+1,fitp[ipt][ir][3][1][0][0]->GetParError(1));
-        hhb->SetBinError(  ipt+1,fith[ipt][ir][3][1][0][0]->GetParError(1));
-
-        hd3->SetBinContent(ipt+1,fitd[ipt][ir][3][0][1][0]->GetParameter(1));
-        hp3->SetBinContent(ipt+1,fitp[ipt][ir][3][0][1][0]->GetParameter(1));
-        hh3->SetBinContent(ipt+1,fith[ipt][ir][3][0][1][0]->GetParameter(1));
-        hd3->SetBinError(  ipt+1,fitd[ipt][ir][3][0][1][0]->GetParError(1));
-        hp3->SetBinError(  ipt+1,fitp[ipt][ir][3][0][1][0]->GetParError(1));
-        hh3->SetBinError(  ipt+1,fith[ipt][ir][3][0][1][0]->GetParError(1));
-        
-        hdi->SetBinContent(ipt+1,fitd[ipt][ir][3][2][0][0]->GetParameter(1));
-        hpi->SetBinContent(ipt+1,fitp[ipt][ir][3][2][0][0]->GetParameter(1));
-        hhi->SetBinContent(ipt+1,fith[ipt][ir][3][2][0][0]->GetParameter(1));
-        hdi->SetBinError(  ipt+1,fitd[ipt][ir][3][2][0][0]->GetParError(1));
-        hpi->SetBinError(  ipt+1,fitp[ipt][ir][3][2][0][0]->GetParError(1));
-        hhi->SetBinError(  ipt+1,fith[ipt][ir][3][2][0][0]->GetParError(1));
-        
-        hdJH->SetBinContent(ipt+1,fitd[ipt][ir][5][0][0][0]->GetParameter(1));
-        hpJH->SetBinContent(ipt+1,fitp[ipt][ir][5][0][0][0]->GetParameter(1));
-        hhJH->SetBinContent(ipt+1,fith[ipt][ir][5][0][0][0]->GetParameter(1));
-        hdJH->SetBinError(  ipt+1,fitd[ipt][ir][5][0][0][0]->GetParError(1));
-        hpJH->SetBinError(  ipt+1,fitp[ipt][ir][5][0][0][0]->GetParError(1));
-        hhJH->SetBinError(  ipt+1,fith[ipt][ir][5][0][0][0]->GetParError(1));
-        
-        hdJL->SetBinContent(ipt+1,fitd[ipt][ir][6][0][0][0]->GetParameter(1));
-        hpJL->SetBinContent(ipt+1,fitp[ipt][ir][6][0][0][0]->GetParameter(1));
-        hhJL->SetBinContent(ipt+1,fith[ipt][ir][6][0][0][0]->GetParameter(1));
-        hdJL->SetBinError(  ipt+1,fitd[ipt][ir][6][0][0][0]->GetParError(1));
-        hpJL->SetBinError(  ipt+1,fitp[ipt][ir][6][0][0][0]->GetParError(1));
-        hhJL->SetBinError(  ipt+1,fith[ipt][ir][6][0][0][0]->GetParError(1));
-      }
-      else {
-        hd->SetBinContent(ipt+1,meand[ipt][ir][3][0][0][0] );
-        hp->SetBinContent(ipt+1,meanp[ipt][ir][3][0][0][0] );
-        hh->SetBinContent(ipt+1,meanh[ipt][ir][3][0][0][0] );
-        hd->SetBinError(  ipt+1,merrd[ipt][ir][3][0][0][0] );
-        hp->SetBinError(  ipt+1,merrp[ipt][ir][3][0][0][0] );
-        hh->SetBinError(  ipt+1,merrh[ipt][ir][3][0][0][0] );
-
-        hdb->SetBinContent(ipt+1,meand[ipt][ir][3][1][0][0]);
-        hpb->SetBinContent(ipt+1,meanp[ipt][ir][3][1][0][0]);
-        hhb->SetBinContent(ipt+1,meanh[ipt][ir][3][1][0][0]);
-        hdb->SetBinError(  ipt+1,merrd[ipt][ir][3][1][0][0]);
-        hpb->SetBinError(  ipt+1,merrp[ipt][ir][3][1][0][0]);
-        hhb->SetBinError(  ipt+1,merrh[ipt][ir][3][1][0][0]);
-
-        hd3->SetBinContent(ipt+1,meand[ipt][ir][3][0][1][0]);
-        hp3->SetBinContent(ipt+1,meanp[ipt][ir][3][0][1][0]);
-        hh3->SetBinContent(ipt+1,meanh[ipt][ir][3][0][1][0]);
-        hd3->SetBinError(  ipt+1,merrd[ipt][ir][3][0][1][0]);
-        hp3->SetBinError(  ipt+1,merrp[ipt][ir][3][0][1][0]);
-        hh3->SetBinError(  ipt+1,merrh[ipt][ir][3][0][1][0]);
-        
-        hdi->SetBinContent(ipt+1,meand[ipt][ir][3][2][0][0]);
-        hpi->SetBinContent(ipt+1,meanp[ipt][ir][3][2][0][0]);
-        hhi->SetBinContent(ipt+1,meanh[ipt][ir][3][2][0][0]);
-        hdi->SetBinError(  ipt+1,merrd[ipt][ir][3][2][0][0]);
-        hpi->SetBinError(  ipt+1,merrp[ipt][ir][3][2][0][0]);
-        hhi->SetBinError(  ipt+1,merrh[ipt][ir][3][2][0][0]);
-        
-        hdJH->SetBinContent(ipt+1,meand[ipt][ir][5][0][0][0]);
-        hpJH->SetBinContent(ipt+1,meanp[ipt][ir][5][0][0][0]);
-        hhJH->SetBinContent(ipt+1,meanh[ipt][ir][5][0][0][0]);
-        hdJH->SetBinError(  ipt+1,merrd[ipt][ir][5][0][0][0]);
-        hpJH->SetBinError(  ipt+1,merrp[ipt][ir][5][0][0][0]);
-        hhJH->SetBinError(  ipt+1,merrh[ipt][ir][5][0][0][0]);
-        
-        hdJL->SetBinContent(ipt+1,meand[ipt][ir][6][0][0][0]);
-        hpJL->SetBinContent(ipt+1,meanp[ipt][ir][6][0][0][0]);
-        hhJL->SetBinContent(ipt+1,meanh[ipt][ir][6][0][0][0]);
-        hdJL->SetBinError(  ipt+1,merrd[ipt][ir][6][0][0][0]);
-        hpJL->SetBinError(  ipt+1,merrp[ipt][ir][6][0][0][0]);
-        hhJL->SetBinError(  ipt+1,merrh[ipt][ir][6][0][0][0]);
-      }
-    }
-    TH1D * hdivide = (TH1D*)hd->Clone();
-    hdivide->SetName(Form("hdivide%i%i",ir,usefit));
-    hdivide->Divide(hd,hp);
-    
-    TH1D * hdivideb = (TH1D*)hd->Clone();
-    hdivideb->SetName(Form("hdivideb%i%i",ir,usefit));
-    hdivideb->Divide(hdb,hpb);
-    
-    TH1D * hdivide3 = (TH1D*)hd->Clone();
-    hdivide3->SetName(Form("hdivide3%i%i",ir,usefit));
-    hdivide3->Divide(hd3,hp3);
-    
-    TH1D * hdividei = (TH1D*)hd->Clone();
-    hdividei->SetName(Form("hdividei%i%i",ir,usefit));
-    hdividei->Divide(hdi,hpi);
-    
-    TH1D * hdivideh = (TH1D*)hd->Clone();
-    hdivideh->SetName(Form("hdivideh%i%i",ir,usefit));
-    hdivideh->Divide(hd,hh);
-
-    TH1D * hdivideJH = (TH1D*)hd->Clone();
-    hdivideJH->SetName(Form("hdivideJH%i%i",ir,usefit));
-    hdivideJH->Divide(hd,hpJH);
-    
-    TH1D * hdivideJL = (TH1D*)hd->Clone();
-    hdivideJL->SetName(Form("hdivideJL%i%i",ir,usefit));
-    hdivideJL->Divide(hd,hpJL);
-
-
-    TH1D * hcompb = (TH1D*)hd->Clone();
-    hcompb->SetName(Form("hcompb%i%i",ir,usefit));
-    hcompb->Divide(hdivideb,hdivide);
-    
-    TH1D * hcomp3 = (TH1D*)hd->Clone();
-    hcomp3->SetName(Form("hcomp3%i%i",ir,usefit));
-    hcomp3->Divide(hdivide3,hdivide);
-    
-    TH1D * hcompi = (TH1D*)hd->Clone();
-    hcompi->SetName(Form("hcompi%i%i",ir,usefit));
-    hcompi->Divide(hdividei,hdivide);
-    
-    TH1D * hcomph = (TH1D*)hd->Clone();
-    hcomph->SetName(Form("hcomph%i%i",ir,usefit));
-    hcomph->Divide(hdivideh,hdivide);
-    
-    TH1D * hcompJH = (TH1D*)hd->Clone();
-    hcompJH->SetName(Form("hcompJH%i%i",ir,usefit));
-    hcompJH->Divide(hdivideJH,hdivide);
-    
-    TH1D * hcompJL = (TH1D*)hd->Clone();
-    hcompJL->SetName(Form("hcomph%i%i",ir,usefit));
-    hcompJL->Divide(hdivideJL,hdivide);
-    
-
-    TF1 * fline = new TF1(Form("func_%i_%i",ir,usefit),"pol0",10,35);
-    hdivide->Fit(fline,"RQIM0");   
-    
-    TF1 * flineb = new TF1(Form("funcb_%i_%i",ir,usefit),"pol0",10,35);
-    hcompb->Fit(flineb,"RQIM0");   
-    
-    TF1 * fline3 = new TF1(Form("func3_%i_%i",ir,usefit),"pol0",10,35);
-    hcomp3->Fit(fline3,"RQIM0"); 
-    
-    TF1 * flinei = new TF1(Form("funci_%i_%i",ir,usefit),"pol0",10,35);
-    hcompi->Fit(flinei,"RQIM0"); 
-    
-    TF1 * flineh = new TF1(Form("funch_%i_%i",ir,usefit),"pol0",10,35);
-    hcomph->Fit(flineh,"RQIM0"); 
-    
-    TF1 * flineJH = new TF1(Form("funcJH_%i_%i",ir,usefit),"pol0",10,35);
-    hcompJH->Fit(flineJH,"RQIM0"); 
-    
-    TF1 * flineJL = new TF1(Form("funcJL_%i_%i",ir,usefit),"pol0",10,35);
-    hcompJL->Fit(flineJL,"RQIM0"); 
-
-    if (usefit) {
-      xjf  [ir] = fline->GetParameter(0);
-      xjfe [ir] = fline->GetParError(0);
-      xjfeb[ir] = abs(1-flineb->GetParameter(0));
-      xjfe3[ir] = abs(1-fline3->GetParameter(0));
-      xjfei[ir] = abs(1-flinei->GetParameter(0));
-      xjfeh[ir] = abs(1-flineh->GetParameter(0));
-      xjfeJH[ir] = (flineJH->GetParameter(0)-1);
-      xjfeJL[ir] = (flineJL->GetParameter(0)-1);
-    }
-    else {
-      xjm  [ir] = fline->GetParameter(0);
-      xjme [ir] = fline->GetParError(0);
-      xjmeb[ir] = abs(1-flineb->GetParameter(0));
-      xjme3[ir] = abs(1-fline3->GetParameter(0));
-      xjmei[ir] = abs(1-flinei->GetParameter(0));
-      xjmeh[ir] = abs(1-flineh->GetParameter(0));
-      xjmeJH[ir] = (flineJH->GetParameter(0)-1);
-      xjmeJL[ir] = (flineJL->GetParameter(0)-1);
-    }
-  }
-  return;
-}
-*/
 
 void newdraw_all() {
   gStyle->SetOptStat(0);
@@ -785,10 +592,12 @@ void newdraw_all() {
   }
   drawer dp = drawer("pythia");
   drawer dh = drawer("herwig");
+      
+  get_hists(1, 3, 0, 0, 0, dh, "herwig");
   
   int csize = 700;
   cout << "Drawing single bin..." << endl;
-  int i = 5;
+  int i = 7;
   int j = 2;
   draw_one(
       "/home/samson72/sphnx/gammajet/pdfs/note/xj_single_bin.pdf","p+p #sqrt{s}=200 GeV","Pythia 8 #gamma+jet", 
@@ -797,199 +606,213 @@ void newdraw_all() {
 
   cout << "Drawing many bins..." << endl;
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/paper/allptbins_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
       get_hists(0, 3, 0, 0, 0, dp, "pythia"),
       get_hists(1, 3, 0, 0, 0, dp, "pythia"),
       dp
       );
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/allptbins_regionA_photon_scale.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "1\% scale",
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig 3.7", "Herwig",
       get_hists(0, 3, 0, 0, 0, dp, "pythia"),
-      get_hists(1, 4, 0, 0, 0, dp, "pythia"),
+      get_hists(1, 3, 0, 0, 0, dh, "herwig"),
       dp
       );
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/allptbins_regionA_JET.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Jet sample",
-      get_hists(0, 3, 0, 0, 0, dp, "pythia"),
-      get_hists(2, 3, 0, 0, 0, dp, "pythia"),
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_wideBDT.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Wider BDT Cut",
+      get_hists(0, 3, 1, 0, 0, dp, "pythia"),
+      get_hists(1, 3, 1, 0, 0, dp, "pythia"),
       dp
       );
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/allptbins_regionA_direct.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 jet", "Jet direct photons",
-      get_short_hists(0, "hratio_direct", 0, dp, "pythia"),
-      get_short_hists(2, "hratio_direct", 0, dp, "pythia"),
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_narrowISO.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow Isolation Energy Cut",
+      get_hists(0, 3, 2, 0, 0, dp, "pythia"),
+      get_hists(1, 3, 2, 0, 0, dp, "pythia"),
       dp
       );
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/allptbins_regionA_nondirect.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 jet", "Jet non-direct photons",
-      get_short_hists(0, "hratio_direct", 0, dp, "pythia"),
-      get_short_hists(2, "hratio_direct", 1, dp, "pythia"),
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_3jet.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Third Jet Cut",
+      get_hists(0, 3, 0, 1, 0, dp, "pythia"),
+      get_hists(1, 3, 0, 1, 0, dp, "pythia"),
       dp
       );
-  /*
-     draw_many(
-     cmany2, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_narrowBDT.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow BDT",
-     0, 2, 3, 1, 0, 0,
-     1, 2, 3, 1, 0, 0);
-     draw_many(
-     cmany3, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_3jetCut.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Third Jet cut",
-     0, 2, 3, 0, 1, 0,
-     1, 2, 3, 0, 1, 0);
-     draw_many(
-     cmany5, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_narrowIso.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow Isolation Energy",
-     0, 2, 3, 2, 0, 0,
-     1, 2, 3, 2, 0, 0);
-     draw_many(
-     cmany7, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig 7.3 #gamma+jet", "HERWIG-7.3",
-     0, 2, 3, 0, 0, 0,
-     3, 2, 3, 0, 0, 0);
-     draw_many(
-     cmany9, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_JERhigh_Pythia.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High JER smearing",
-     0, 2, 5, 0, 0, 0,
-     1, 2, 5, 0, 0, 0);
-     draw_many(
-     cmany10, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_JERlow_Pythia.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low JER smearing",
-     0, 2, 6, 0, 0, 0,
-     1, 2, 6, 0, 0, 0);
-     draw_many(
-     cmany11, "/home/samson72/sphnx/gammajet/pdfs/allptbins_R04_regionA_Pythia_JET.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 Jet", "",
-     0, 2, 3, 0, 0, 0,
-     2, 2, 3, 0, 0, 0);
-
-*/
+  draw_many(
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_JERhigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High JER Smearing",
+      get_hists(0, 5, 0, 0, 0, dp, "pythia"),
+      get_hists(1, 5, 0, 0, 0, dp, "pythia"),
+      dp
+      );
+  draw_many(
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_JERlow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low JER Smearing",
+      get_hists(0, 6, 0, 0, 0, dp, "pythia"),
+      get_hists(1, 6, 0, 0, 0, dp, "pythia"),
+      dp
+      );
+  draw_many(
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_scalehigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High EM Scale",
+      get_hists(0, 1, 0, 0, 0, dp, "pythia"),
+      get_hists(1, 1, 0, 0, 0, dp, "pythia"),
+      dp
+      );
+  draw_many(
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_scalelow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low EM Scale",
+      get_hists(0, 0, 0, 0, 0, dp, "pythia"),
+      get_hists(1, 0, 0, 0, 0, dp, "pythia"),
+      dp
+      );
+  draw_many(
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_Jet.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 Jet", "",
+      get_hists(0, 3, 1, 0, 0, dp, "pythia"),
+      get_hists(2, 3, 1, 0, 0, dp, "pythia"),
+      dp
+      );
+  
   cout << "Drawing mean xj..." << endl;
-  comp_axj(
-      "/home/samson72/sphnx/gammajet/pdfs/paper/axj_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
-      get_hists(0, 3, 0, 0, 0, dp, "pythia"),
-      get_hists(1, 3, 0, 0, 0, dp, "pythia"),
+  vector<vector<float>> xj_vals;
+  vector<vector<float>> xj_vals_herwig;
+  xj_vals = comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Nominal",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal",
+      dp
+      );
+  xj_vals_herwig = comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig3.7 #gamma+jet", "Herwig",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_HERWIG",
       dp
       );
   comp_axj(
-      "/home/samson72/sphnx/gammajet/pdfs/axj_regionA_photon_scale.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "1\% scale",
-      get_hists(0, 3, 0, 0, 0, dp, "pythia"),
-      get_hists(1, 4, 0, 0, 0, dp, "pythia"),
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_wideBDT.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Wider BDT Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_bdt",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_narrowISO.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow Isolation Energy Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_iso",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_3jet.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Third Jet Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_3jet",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_JERhigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High JER Smearing",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_JERhigh",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_JERlow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low JER Smearing",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_JERlow",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_scalehigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High EM Scale",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_scalehigh",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_scalelow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low EM Scale",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_scalelow",
+      dp
+      );
+  comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_jet.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 Jet", "",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal_jet",
       dp
       );
 
-  /*
-  //comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_narrowBDT.pdf","Narrow BDT score", 1,
-  //  0, 3, 1, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 1, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_axj(caxj2,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_3jetCut.pdf", "Third Jet Cut", 1,
-  //  0, 3, 0, 1, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 0, 1, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_axj(caxj9,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_narrowIso.pdf", "Narrow Iso cut", 1,
-  //  0, 3, 2, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 2, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  //comp_axj(caxj11,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_Herwig.pdf", "HERWIG-7.3", 1,
-  //  0, 3, 0, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  3, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  comp_axj(caxj5,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean.pdf","Nominal", 0, // 0 means use mean
-  0, 3, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue, 
-  1, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_axj(caxj6,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_narrowBDT.pdf","Narrow BDT score", 0,
-  0, 3, 1, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 3, 1, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_axj(caxj7,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_3jetCut.pdf", "Third Jet Cut", 0,
-  0, 3, 0, 1, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 3, 0, 1, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_axj(caxj10,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_narrowIso.pdf", "Narrow Iso cut", 0,
-  0, 3, 2, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 3, 2, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  comp_axj(caxj12,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_Herwig.pdf", "HERWIG-7.3", 0,
-  0, 3, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  3, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  //comp_axj(caxj13,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_clusterSmear.pdf", "Cluster Smearing", 0,
-  //  0, 2, 0, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 4, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  comp_axj(caxj14,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_JERhigh.pdf", "High JER smearing", 0,
-  0, 5, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 5, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
-  comp_axj(caxj15,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_JERlow.pdf", "Low JER smearing", 0,
-  0, 6, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 6, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+4);
 
+  cout << "Drawing <xj> systematics..." << endl;
+  vector<float> sys_herwig = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig3.7 #gamma+jet", "Herwig",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_HERWIG",
+      dp
+      );
+  vector<float> sys_bdt = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_wideBDT.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Wider BDT Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_bdt",
+      dp
+      );
+  vector<float> sys_iso = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_narrowISO.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Narrow Isolation Energy Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_iso",
+      dp
+      );
+  vector<float> sys_3jet = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_3jet.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Third Jet Cut",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_3jet",
+      dp
+      );
+  vector<float> sys_JERhigh = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_JERhigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High JER Smearing",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_JERhigh",
+      dp
+      );
+  vector<float> sys_JERlow = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_JERlow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low JER Smearing",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_JERlow",
+      dp
+      );
+  vector<float> sys_scalehigh = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_scalehigh.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "High EM Scale",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_scalehigh",
+      dp
+      );
+  vector<float> sys_scalelow = comp_comp_axj(
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_scalelow.pdf", "p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet", "Low EM Scale",
+      "/home/samson72/sphnx/gammajet/hists/insitu_fit_scalelow",
+      dp
+      );
 
-
-  cout << "Drawing <xj> comparisons..." << endl;
-  TCanvas * caxj1comp = new TCanvas("caxj1comp","",1000,600);
-  TCanvas * caxj2comp = new TCanvas("caxj2comp","",1000,600);
-  TCanvas * caxj3comp = new TCanvas("caxj3comp","",1000,600);
-  TCanvas * caxj4comp = new TCanvas("caxj4comp","",1000,600);
-  TCanvas * caxj5comp = new TCanvas("caxj5comp","",1000,600);
-  TCanvas * caxj6comp = new TCanvas("caxj6comp","",1000,600);
-  TCanvas * caxj7comp = new TCanvas("caxj7comp","",1000,600);
-  TCanvas * caxj8comp = new TCanvas("caxj8comp","",1000,600);
-  TCanvas * caxj9comp = new TCanvas("caxj9comp","",1000,600);
-  TCanvas * caxj10comp = new TCanvas("caxj10comp","",1000,600);
-  TCanvas * caxj11comp = new TCanvas("caxj11comp","",1000,600);
-  TCanvas * caxj12comp = new TCanvas("caxj12comp","",1000,600);
-  TCanvas * caxj13comp = new TCanvas("caxj13comp","",1000,600);
-  //comp_comp_axj(caxj1comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_fit_comp.pdf","Nominal", 1,
-  //  0, 3, 0, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_comp_axj(caxj2comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT_fit_comp.pdf", "Narrow BDT score", 1,
-  //  0, 3, 1, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 1, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_comp_axj(caxj3comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut_fit_comp.pdf", "Third Jet cut", 1,
-  //  0, 3, 0, 1, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 0, 1, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_comp_axj(caxj7comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowIso_fit_comp.pdf", "Narrow Iso cut", 1,
-  //  0, 3, 2, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 3, 2, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_comp_axj(caxj9comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_Herwig_fit_comp.pdf", "HERWIG-7.3", 1,
-  //  0, 3, 0, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  3, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj4comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_mean_comp.pdf","Nominal", 0,
-  0, 3, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-  1, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj5comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowBDT_mean_comp.pdf", "Narrow BDT score", 0,
-      0, 3, 1, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      1, 3, 1, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj6comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_3jetCut_mean_comp.pdf", "Third Jet cut", 0,
-      0, 3, 0, 1, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      1, 3, 0, 1, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj8comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_narrowIso_mean_comp.pdf", "Narrow Iso cut", 0,
-      0, 3, 2, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      1, 3, 2, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj10comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_Herwig_mean_comp.pdf", "HERWIG-7.3", 0,
-      0, 3, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      3, 3, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  //comp_comp_axj(caxj11comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_clusterSmear_mean_comp.pdf", "Cluster smear", 0,
-  //  0, 2, 0, 0, 0, "p+p #sqrt{s}=200GeV", kBlue,
-  //  1, 4, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj12comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_JERhigh_mean_comp.pdf", "High JER Smearing", 0,
-      0, 5, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      1, 5, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-  comp_comp_axj(caxj13comp,"/home/samson72/sphnx/gammajet/pdfs/axj_regionA_JERlow_mean_comp.pdf", "High JER Smearing", 0,
-      0, 6, 0, 0, 0, "p+p #sqrt{s}=200 GeV", kBlue,
-      1, 6, 0, 0, 0, "Pythia 8 #gamma+jet", kMagenta+1);
-
-  fillxj(0);
-  //fillxj(1);
-
-  for (int i = 0; i < 2; i++) { 
+  for (int i = 0; i < 1; i++) { 
     (i == 0 ? cout << endl << endl << "xJ values with mean:" << endl : cout << endl << endl << "xJ values with fit:" << endl << endl);
-    cout << "Jet Radius & Nominal $x_{J\\gamma}$ & Purity & Isolation & Jet topology & Model & JER\\\\ [0.5ex]" << endl;
+    cout << "Jet Radius & Nominal $x_{J\\gamma}$ & Purity & Isolation & Jet topology & Model & JER & EM Scale\\\\ [0.5ex]" << endl;
     cout << "\\hline\\hline" << endl;
     for (int ir = 0; ir < ana::nJetR; ir++) {
-      float sys_down = (i == 0 ? TMath::Sqrt(xjmeb[ir]*xjmeb[ir] + xjme3[ir]*xjme3[ir] + xjmei[ir]*xjmei[ir] + xjmeh[ir]*xjmeh[ir] + xjmeJH[ir]*xjmeJH[ir]) : TMath::Sqrt(xjfeb[ir]*xjfeb[ir] + xjfe3[ir]*xjfe3[ir] + xjfei[ir]*xjfei[ir]+xjfeh[ir]*xjfeh[ir]+xjfeJH[ir]*xjfeJH[ir]));
-      float sys_up = (i == 0 ? TMath::Sqrt(xjmeb[ir]*xjmeb[ir] + xjme3[ir]*xjme3[ir] + xjmei[ir]*xjmei[ir] + xjmeh[ir]*xjmeh[ir] + xjmeJL[ir]*xjmeJL[ir]) : TMath::Sqrt(xjfeb[ir]*xjfeb[ir] + xjfe3[ir]*xjfe3[ir] + xjfei[ir]*xjfei[ir]+xjfeh[ir]*xjfeh[ir]+xjfeJH[ir]*xjfeJH[ir]));
-      float xj = (i == 0 ? xjm[ir]   : xjf[ir]);
-      float es = (i == 0 ? xjme[ir]  : xjfe[ir]);
-      float eb = (i == 0 ? xjmeb[ir] : xjfeb[ir]);
-      float ei = (i == 0 ? xjmei[ir] : xjfei[ir]);
-      float e3 = (i == 0 ? xjme3[ir] : xjfe3[ir]);
-      float eh = (i == 0 ? xjmeh[ir] : xjfeh[ir]);
-      float eJH = (i == 0 ? xjmeJH[ir] : xjfeJH[ir]);
-      float eJL = (i == 0 ? xjmeJL[ir] : xjfeJL[ir]);
-      cout << std::defaultfloat << ana::JetRs[ir] << std::fixed << std::setprecision(4) << " & " << xj << " $\\pm$ " << es << " (stat) $^{+ " 
+      float herwig_sys = (xj_vals_herwig[ir][1] - xj_vals[ir][1])/2.0;
+      
+      float sys_down = (i == 0 ? TMath::Sqrt(
+            //sys_herwig[ir]*sys_herwig[ir] + 
+            herwig_sys*herwig_sys + 
+            sys_bdt[ir]*sys_bdt[ir] +
+            sys_iso[ir]*sys_iso[ir] +
+            sys_3jet[ir]*sys_3jet[ir] +
+            (sys_JERhigh[ir] < 0 ? sys_JERhigh[ir]*sys_JERhigh[ir] : 0) +
+            (sys_scalelow[ir] < 0 ? sys_scalelow[ir]*sys_scalelow[ir] : 0)
+            ) 
+          : TMath::Sqrt(0));
+      float sys_up = (i == 0 ? TMath::Sqrt(
+            herwig_sys*herwig_sys +
+            //sys_herwig[ir]*sys_herwig[ir] + 
+            sys_bdt[ir]*sys_bdt[ir] +
+            sys_iso[ir]*sys_iso[ir] +
+            sys_3jet[ir]*sys_3jet[ir] +
+            (sys_JERlow[ir] > 0 ? sys_JERlow[ir]*sys_JERlow[ir] : 0) +
+            (sys_scalehigh[ir] > 0 ? sys_scalehigh[ir]*sys_scalehigh[ir] : 0)
+            ) 
+          : TMath::Sqrt(0));
+      //float xj =  (i == 0 ? xj_vals[ir][1]  : 0); // THE result
+      //float esu = (i == 0 ? fabs(xj_vals[ir][2])  : 0); // upper error
+      //float esd = (i == 0 ? fabs(xj_vals[ir][0])  : 0); // lower error
+      float xj =  (i == 0 ? (xj_vals[ir][1] + xj_vals_herwig[ir][1])/2.0  : 0); // THE result
+      float esu = (i == 0 ? fabs(xj_vals[ir][2])  : 0); // upper error
+      float esd = (i == 0 ? fabs(xj_vals[ir][0])  : 0); // lower error
+      float eb =  (i == 0 ? fabs(sys_bdt[ir])     : 0);
+      float ei =  (i == 0 ? fabs(sys_iso[ir])     : 0);
+      float e3 =  (i == 0 ? fabs(sys_3jet[ir])    : 0);
+      float eh =  (i == 0 ? fabs(herwig_sys)  : 0);
+      //float eh =  (i == 0 ? fabs(sys_herwig[ir])  : 0);
+      float eJH = (i == 0 ? (sys_JERhigh[ir] < 0 ? fabs(sys_JERhigh[ir]) : 0)        : 0); //JER is not abs'ded
+      float eJL = (i == 0 ? (sys_JERlow[ir] > 0 ? fabs(sys_JERlow[ir]) : 0)          : 0);
+      float esH = (i == 0 ? (sys_scalehigh[ir] > 0 ? fabs(sys_scalehigh[ir]) : 0)    : 0); //EM scale is not abs'ded
+      float esL = (i == 0 ? (sys_scalelow[ir] < 0 ? fabs(sys_scalelow[ir]) : 0)      : 0);
+      
+      cout << std::defaultfloat << ana::JetRs[ir] << std::fixed << std::setprecision(4) << " & " << xj << "$^{+" << esu << "}_{-" << esd << "}$ (stat) $^{+" 
         << sys_up << "}_{-" << sys_down << "}$ (sys) & " 
-        << eb << " & " << ei << " & " << e3 << " & " << eh << " & $^{+" 
-        << eJL << "}_{" << eJH << "}$ \\\\";
+        << eb << " & " << ei << " & " << e3 << " & " << eh 
+        << " & $^{+" << eJL << "}_{-" << eJH << "}$"
+        << " & $^{+" << esH << "}_{-" << esL << "}$ \\\\";
       if (ir == ana::nJetR -1) cout << " [1ex]";
       cout << endl;
     }
   }
-  */ 
 }

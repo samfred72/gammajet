@@ -84,7 +84,7 @@ TH1D * drawer::combineMC(const char * histname, bool isphoton) {
   vector<TFile*> files = (isphoton ? pfiles : jfiles);
   int nfiles = (isphoton ? npfiles : njfiles);
   vector<int> samples = (isphoton ? psamples : jsamples);
-  int istart = (isphoton ? 0 : 1);
+  int istart = (isphoton ? 0 : 0);
   
   for (int ifile = istart; ifile < nfiles; ifile++) {
     hists.push_back((TH1D*)files[ifile]->Get(histname));

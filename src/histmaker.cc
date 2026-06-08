@@ -186,19 +186,30 @@ void histmaker::make_hists()
     float newPhi = rand->Gaus(cluster_phi, cluster_position_smear_func->Eval(cluster_e));
     float newEta = rand->Gaus(cluster_eta, cluster_position_smear_func->Eval(cluster_e));
 
-    //pho_object maxpho_smear = pho_object(
-    //    newE/TMath::CosH(newEta),
-    //    newE,
-    //    newEta,
-    //    newPhi,
-    //    cluster_showershape[8],
-    //    cluster_showershape[9],
-    //    cluster_time, 
-    //    cluster_bdt_scores[9], 
-    //    pho_object::get_showershape(cluster_showershape, cluster_pt)
-    //); 
     pho_object maxpho_smear = pho_object(
-        cluster_pt * (1 + 0.0005 * cluster_pt - 0.005),
+        newE/TMath::CosH(newEta),
+        newE,
+        newEta,
+        newPhi,
+        cluster_showershape[8],
+        cluster_showershape[9],
+        cluster_time, 
+        cluster_bdt_scores[9], 
+        pho_object::get_showershape(cluster_showershape, cluster_pt)
+    ); 
+    pho_object maxpho_scalehigh = pho_object(
+        cluster_pt + (isMC ? (cluster_pt*0.011) : 0),
+        cluster_e,
+        cluster_eta,
+        cluster_phi,
+        cluster_showershape[8],
+        cluster_showershape[9],
+        cluster_time, 
+        cluster_bdt_scores[9], 
+        pho_object::get_showershape(cluster_showershape, cluster_pt)
+    ); 
+    pho_object maxpho_scalelow = pho_object(
+        cluster_pt - (isMC ? (cluster_pt*0.011) : 0),
         cluster_e,
         cluster_eta,
         cluster_phi,
@@ -294,21 +305,23 @@ void histmaker::make_hists()
       }
       // Fill the xJ histograms
       if (maxjet[ir].pt > ana::jet_pt_cut[ir]) {
-        loop(maxjet[ir],  ir, maxpho, 0, 1, truthpho);
+        //loop(maxjet[ir],  ir, maxpho, 0, 1, truthpho);
       }
       if (maxjet_calib[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_calib[ir], ir, maxpho, 1, 1, truthpho);
+        //loop(maxjet_calib[ir], ir, maxpho, 1, 1, truthpho);
       }
       if (maxjet_smear[ir].pt > ana::jet_calib_pt_cut[ir]) {
         loop(maxjet_smear[ir], ir, maxpho, 2,  1, truthpho); // Normal smearing
-        loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // smearing with weights
+        ispaired[ir] = loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // smearing with weights
         loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4,  1, truthpho); // smearing the photon, too
+        loop(maxjet_smear[ir], ir, maxpho_scalelow, 0, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
+        loop(maxjet_smear[ir], ir, maxpho_scalehigh , 1, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
       }
       if (maxjet_smear_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_smear_high[ir], ir, maxpho, 5,  1, truthpho);
+        loop(maxjet_smear_high[ir], ir, maxpho, 5,  (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho);
       }
       if (maxjet_smear_low[ir].pt > ana::jet_calib_pt_cut[ir]) {
-        loop(maxjet_smear_low[ir], ir, maxpho, 6,  1, truthpho);
+        loop(maxjet_smear_low[ir], ir, maxpho, 6,  (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho);
       }
     
       int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
@@ -364,6 +377,18 @@ void histmaker::make_hists()
               outtree_jet_pt_JERlow[ir] = maxjet_smear_low[ir].pt;
               outtree_weight_JERlow[ir] = weight;
               outtree_JERlow[ir]->Fill();
+            }
+            if (jet_pt_smear[ir] > ana::jet_calib_pt_cut[ir]) { // photon + scale
+              outtree_pho_pt_scalehigh[ir] = maxpho_scalehigh.pt;
+              outtree_jet_pt_scalehigh[ir] = maxjet_smear[ir].pt;
+              outtree_weight_scalehigh[ir] = weight;
+              outtree_scalehigh[ir]->Fill();
+            }
+            if (jet_pt_smear[ir] > ana::jet_calib_pt_cut[ir]) { // photon - scale
+              outtree_pho_pt_scalelow[ir] = maxpho_scalelow.pt;
+              outtree_jet_pt_scalelow[ir] = maxjet_smear[ir].pt;
+              outtree_weight_scalelow[ir] = weight;
+              outtree_scalelow[ir]->Fill();
             }
             if (ir == 2 && userecalib && jet_pt_smear[ir] > ana::jet_calib_pt_cut[ir]) { // Jin test
               float val =  maxjet_smear[ir].pt / maxpho.pt;
@@ -480,6 +505,8 @@ void histmaker::end() {
     if (isMC) {
       outtree_JERhigh[ir]->Write();
       outtree_JERlow[ir]->Write();
+      outtree_scalehigh[ir]->Write();
+      outtree_scalelow[ir]->Write();
       outtree_forjin[ir]->Write();
     }
   }

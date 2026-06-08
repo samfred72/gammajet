@@ -45,22 +45,22 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   const char * rname = ana::rnames[ir];
 
   // Gammajet reference
+  const char * histname;
   for (int i = 0; i < ana::nPtBins; i++ ) {
     float lowcluster = ana::ptBins[i];
     int lowbin = (int)(minjet/lowcluster/0.08 + 1);
 
-    const char * histname;
     if (strcmp(form, "nominal") == 0) {
-      histname = Form("hratio_%i_%i_2_0_0_0",i,ir);
+      histname = Form("hratio_%i_%i_3_0_0_0",i,ir);
     }
     else if (strcmp(form, "3jet") == 0) {
-      histname = Form("hratio_%i_%i_2_0_1_0",i,ir);
+      histname = Form("hratio_%i_%i_3_0_1_0",i,ir);
     }
     else if (strcmp(form, "bdt") == 0) {
-      histname = Form("hratio_%i_%i_2_1_0_0",i,ir);
+      histname = Form("hratio_%i_%i_3_1_0_0",i,ir);
     }
     else if (strcmp(form, "iso") == 0) {
-      histname = Form("hratio_%i_%i_2_2_0_0",i,ir);
+      histname = Form("hratio_%i_%i_3_2_0_0",i,ir);
     }
     else if (strcmp(form, "JERhigh") == 0) {
       histname = Form("hratio_%i_%i_5_0_0_0",i,ir);
@@ -68,15 +68,21 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
     else if (strcmp(form, "JERlow") == 0) {
       histname = Form("hratio_%i_%i_6_0_0_0",i,ir);
     }
+    else if (strcmp(form, "scalehigh") == 0) {
+      histname = Form("hratio_%i_%i_0_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "scalelow") == 0) {
+      histname = Form("hratio_%i_%i_1_0_0_0",i,ir);
+    }
     else if (strcmp(form, "HERWIG") == 0) {
-      histname = Form("hratio_%i_%i_2_0_0_0",i,ir);
+      histname = Form("hratio_%i_%i_3_0_0_0",i,ir);
     }
     else {
       cout << "Bad variation!" << endl;
       return;
     }
 
-    TH1D* h = d.get(histname,1);
+    TH1D* h = d.get(histname,2);
 
     meanp[i] = h->GetMean();
     merrp[i] = h->GetMeanError();
@@ -108,7 +114,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   TFile * f = TFile::Open(Form("/home/samson72/sphnx/gammajet/hists/tree_Data.root"));
 
   TTree * t;
-  if (strcmp(form, "nominal") == 0 || strcmp(form, "JERhigh") == 0 || strcmp(form, "JERlow") == 0 || strcmp(form, "HERWIG") == 0) {
+  if (strcmp(form, "nominal") == 0 || strcmp(form, "JERhigh") == 0 || strcmp(form, "JERlow") == 0 || strcmp(form, "scalehigh") == 0 || strcmp(form, "scalelow") == 0 || strcmp(form, "HERWIG") == 0) {
     t = (TTree*)f->Get(Form("xjtree_%i",ir));
   }
   else {
@@ -181,7 +187,8 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   // -----------------------------
   // Grid setup
   // -----------------------------
-  int na = 200; float lowa =  0.95, higha = 1.05;
+  int na = (!domulti ? 1000 : 200); float lowa =  0.80, higha = 1.00;
+  //int na = (!domulti ? 1000 : 200); float lowa =  0.95, higha = 1.05;
   int nb = (!domulti ? 1 : 100); float lowb = (!domulti? 0 : -0.002), highb = (!domulti? 0 : 0.002);
   int nc = (use_quad ? 100 : 1); float lowc = (use_quad ? -0.002 : 0), highc = (use_quad ? 0.002 : 0);
 
@@ -205,8 +212,34 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   TH1D *hxj_data[ana::nPtBins];
   TH1D *hxj_corrected[ana::nPtBins];
   for (int i = 0; i < ana::nPtBins; i++) {
-    const char * histname = Form("hratio_%i_2_3_0_0_0",i);
-    hxj_MC[i] = (TH1D*)d.get(histname,1,-1)->Clone(Form("hxj_MC_%i",i));
+    if (strcmp(form, "nominal") == 0) {
+      histname = Form("hratio_%i_%i_3_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "3jet") == 0) {
+      histname = Form("hratio_%i_%i_3_0_1_0",i,ir);
+    }
+    else if (strcmp(form, "bdt") == 0) {
+      histname = Form("hratio_%i_%i_3_1_0_0",i,ir);
+    }
+    else if (strcmp(form, "iso") == 0) {
+      histname = Form("hratio_%i_%i_3_2_0_0",i,ir);
+    }
+    else if (strcmp(form, "JERhigh") == 0) {
+      histname = Form("hratio_%i_%i_5_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "JERlow") == 0) {
+      histname = Form("hratio_%i_%i_6_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "scalehigh") == 0) {
+      histname = Form("hratio_%i_%i_0_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "scalelow") == 0) {
+      histname = Form("hratio_%i_%i_1_0_0_0",i,ir);
+    }
+    else if (strcmp(form, "HERWIG") == 0) {
+      histname = Form("hratio_%i_%i_3_0_0_0",i,ir);
+    }
+    hxj_MC[i] = (TH1D*)d.get(histname,2,-1)->Clone(Form("hxj_MC_%i",i));
     hxj_data[i] = (TH1D*)d.get(histname,0,-1)->Clone(Form("hxj_data_%i",i));
     hxj_corrected[i] = new TH1D(Form("hxj_corrected_%i",i),";x_J;Normalized Counts",25,0,2);
   }
@@ -391,9 +424,9 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
 
   float minChi = result.back().chisq;   // smallest
   int nKeep; 
-  // If only gammajet, use 1, if global, use 2.3, if quad fit, use 3.53
-  float chisq_thresh = (!domulti ? 1.0 : 2.30);
-  if (use_quad) chisq_thresh = 3.53;
+  float chisq_thresh = 2.30;
+  if (use_quad) chisq_thresh = 3.52;
+  if (!domulti) chisq_thresh = 1.0;
   for (int i = 0; i < result.size(); i++) {
     if (result.at(i).chisq < minChi + chisq_thresh) {
       nKeep = result.size() - i;
@@ -449,7 +482,9 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
       return sLow->Eval(xx[0]);
       }, 0, 100, 0);
 
-  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_linear_%s_%s.root",form,rname);
+  const char * gammatext = "";
+  if (dogamma && !domulti) gammatext = "_gammajet";
+  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_%s_jet_%s%s.root",form,rname,gammatext);
   cout << "Writing output to " << wfilename << endl;
   TFile * wf = TFile::Open(wfilename,"RECREATE");
   func->Write();

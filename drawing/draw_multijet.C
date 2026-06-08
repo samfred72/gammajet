@@ -38,8 +38,9 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     h1->GetXaxis()->SetLabelSize(0.08);
     if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
     if (ipt < 3 ) h1->GetXaxis()->SetLabelSize(0.00);
-    if (index == (nx+1)*(ny-1)+1) h1->GetYaxis()->ChangeLabel(-1,-1,0);
-    if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
+    h1->GetYaxis()->SetNdivisions(605);
+    //if (index == (nx+1)*(ny-1)+1) h1->GetYaxis()->ChangeLabel(-1,-1,0);
+    //if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
     if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
     else h1->GetYaxis()->SetTitle("");
     h1->GetYaxis()->SetTitleSize(0.10);
@@ -50,7 +51,7 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     h1->GetYaxis()->SetMaxDigits(3);
     h1->GetYaxis()->SetDecimals(2);
 
-    h1->Draw("hist");
+    h1->Draw("hist e1");
     h2->Draw("hist same");
     
     float drawx = 0.15;
@@ -59,8 +60,8 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     if (ipt < nx) drawy_temp = 0.83;
     d.drawMany({
         Form("#bf{%.0f GeV < p_{T,1} < %.0f GeV}",ana::trijetPtBins[ipt],ana::trijetPtBins[ipt+1]),
-        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","Data",  h1->GetMean(), h1->GetMeanError()),
-        Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","MC",  h2->GetMean(), h2->GetMeanError())
+        //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","Data",  h1->GetMean(), h1->GetMeanError()),
+        //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}","MC",  h2->GetMean(), h2->GetMeanError())
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  h1->GetMean(), h1->GetMeanError()),
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  h2->GetMean(), h2->GetMeanError())
         },drawx,drawy_temp,42,c->GetWh()/3.0);
@@ -73,13 +74,14 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
 
   p->cd();
   d.drawAll({
-      info1, 
-      info2
+      //info1, 
+      //info2
       },
       {
-      "Analysis cuts",
+      //"Analysis cuts",
       Form("Jet R=%1.1f",ana::JetRs[ir]),
-      variation,
+      Form("|#eta| < %1.1f", ana::etacut - ana::JetRs[ir]),
+      //variation,
       },
       drawx,drawy,fontsize,c->GetWh());
   TLegend * l2 = new TLegend(drawx,drawy-.40,0.99,drawy-.30);
@@ -234,35 +236,35 @@ void draw_multijet() {
     htemp2[i] = hj[i][ijet][0];
   }
   draw_many(
-    cmany1, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_nominal.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "Nominal",
+    cmany1, Form("/home/samson72/sphnx/gammajet/pdfs/note/multijet_%s_nominal.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "Nominal",
     htemp1, htemp2);
   for (int i = 0; i < ana::nTrijetPtBins; i++) {
     htemp1[i] = hd[i][ijet][1];
     htemp2[i] = hj[i][ijet][1];
   }
   draw_many(
-    cmany2, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_JERhigh.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER High",
+    cmany2, Form("/home/samson72/sphnx/gammajet/pdfs/note/multijet_%s_JERhigh.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER High",
     htemp1, htemp2);
   for (int i = 0; i < ana::nTrijetPtBins; i++) {
     htemp1[i] = hd[i][ijet][2];
     htemp2[i] = hj[i][ijet][2];
   }
   draw_many(
-    cmany3, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_JERlow.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER Low",
+    cmany3, Form("/home/samson72/sphnx/gammajet/pdfs/note/multijet_%s_JERlow.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER Low",
     htemp1, htemp2);
   for (int i = 0; i < ana::nTrijetPtBins; i++) {
     htemp1[i] = hd[i][ijet][3];
     htemp2[i] = hj[i][ijet][3];
   }
   draw_many(
-    cmany3, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_JERreco.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER Reco",
+    cmany3, Form("/home/samson72/sphnx/gammajet/pdfs/note/multijet_%s_JERreco.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Pythia 8", "JER Reco",
     htemp1, htemp2);
   for (int i = 0; i < ana::nTrijetPtBins; i++) {
     htemp1[i] = hd[i][ijet][4];
     htemp2[i] = hj[i][ijet][4];
   }
   draw_many(
-    cmany4, Form("/home/samson72/sphnx/gammajet/pdfs/multijet_%s_HERWIG.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Herwig 7.3", "HERWIG",
+    cmany4, Form("/home/samson72/sphnx/gammajet/pdfs/note/multijet_%s_HERWIG.pdf",ana::rnames[ijet]), "p+p #sqrt{s}=200 GeV", "Herwig 7.3", "HERWIG",
     htemp1, htemp2);
 
   /*

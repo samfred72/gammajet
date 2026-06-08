@@ -50,12 +50,12 @@ void draw_deltaphi() {
     d.drawText(Form("%1.1f GeV < p_{T}^{cluster} < %1.1f GeV", ana::ptBins[ptbins[i]], ana::ptBins[ptbins[i]+1]),.2,.15,1,20);
   }
   l->AddEntry(hd[0],"data");
-  l->AddEntry(hp[0],"MC photon");
+  l->AddEntry(hp[0],"MC photon Pythia");
   l->AddEntry(hh[0],"MC photon Herwig");
 
   c->cd();
   l->Draw("same");
   d.drawAll({"pp #sqrt{s}=200 GeV","MC Photon run28"},{Form("|vz| < %0.0f cm",ana::vzcut), "pair candidates"}, .1, .9, 20, 1000);  
 
-  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/deltaphi.pdf");
+  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/note/deltaphi.pdf");
 }

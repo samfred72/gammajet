@@ -75,7 +75,7 @@ class ana {
     static constexpr double isoBins[nIsoBdtBins] = {2,2,1.5};
     static constexpr double isoBinsHigh[nIsoBdtBins] = {4,4,4};
     static constexpr double bdtGoodHigh[nIsoBdtBins] = {1.0, 1.0, 1.0};
-    static constexpr double bdtGoodLow[nIsoBdtBins] = {0.9, 0.8, 0.9};
+    static constexpr double bdtGoodLow[nIsoBdtBins] = {0.9, 0.7, 0.9};
     //static constexpr double bdtGoodLow[nIsoBdtBins] = {0.8156, 0.9156, 0.9656};
     static constexpr double bdtBadHigh[nIsoBdtBins] = {0.6, 0.6, 0.6};
     static constexpr double bdtBadLow[nIsoBdtBins] = {0.2, 0.2, 0.2};

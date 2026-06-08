@@ -134,6 +134,6 @@ void draw_isobdt() {
   //d.drawText("C",.25,.90, kBlack, 25);
   //d.drawText("D",.25,ana::bdtBadHigh[0]-.05, kBlack, 25);
 
-  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/isobdt.pdf");
+  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/note/isobdt.pdf");
 
 }
