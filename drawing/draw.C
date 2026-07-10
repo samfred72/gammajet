@@ -16,5 +16,5 @@ void draw_TH2D(const char * sim, bool unfolding, const char * histname, int samp
     d = drawer(unfolding,sim);
   }
   TH2D * h = d.get2d(histname,sample,subsample);
-  h->Draw();
+  h->Draw(opt);
 }

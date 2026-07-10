@@ -1,117 +1,193 @@
-#include "../headers/commonUtility.h"
-#include "../headers/Style_jaebeom.h"
-#include "../headers/ana.cxx"
+#include "/home/samson72/sphnx/gammajet/src/drawer.h"
+#include "/home/samson72/sphnx/gammajet/src/ana.h"
 
-int colors[6] = {kRed, kBlue, kGreen-2, kMagenta, kOrange, kTeal};
+TGraphAsymmErrors * combine_hists(TH1D * h[], TH1D * f[]) {
+  TRandom3 * rand = new TRandom3();
+  TH1D * hA = h[0];
+  TH1D * hB = h[1];
+  TH1D * hC = h[2];
+  TH1D * hD = h[3];
+  TH1D * ha = f[0];
+  TH1D * hb = f[1];
+  TH1D * hc = f[2];
+  TH1D * hd = f[3];
+  TH1D * H[ana::nPurityBins];
+  TH2D * H2 = new TH2D("bootstrap2D",";bin number;bootstrapped value",ana::nPurityBins,ana::purityBins,100,-0.2,1.5);
+  TGraphAsymmErrors * oh = new TGraphAsymmErrors(hA->GetNbinsX());
+  oh->SetName("combined");
+  TH1D * oH = (TH1D*)hA->Clone("hcombined");
+  oH->Reset("ICES");
+  TH1D * oH_noleak = (TH1D*)hA->Clone("hcombined_noleak");
+  oH_noleak->Reset("ICES");
+  for (int i = 0; i < ana::nPurityBins; i++) {
+    H[i] = new TH1D(Form("bootstrap%i",i),";bootstrapped value; counts",100,-0.2,1.5);
+    for (int j = 0; j < 10000; j++) {
+      float A = rand->Gaus(hA->GetBinContent(i+1), hA->GetBinError(i+1));
+      float B = rand->Gaus(hB->GetBinContent(i+1), hB->GetBinError(i+1));
+      float C = rand->Gaus(hC->GetBinContent(i+1), hC->GetBinError(i+1));
+      float D = rand->Gaus(hD->GetBinContent(i+1), hD->GetBinError(i+1));
+      float a = rand->Gaus(ha->GetBinContent(i+1), ha->GetBinError(i+1));
+      float b = rand->Gaus(hb->GetBinContent(i+1), hb->GetBinError(i+1));
+      float c = rand->Gaus(hc->GetBinContent(i+1), hc->GetBinError(i+1));
+      float d = rand->Gaus(hd->GetBinContent(i+1), hd->GetBinError(i+1));
+      
+      float qa = d-b*c;
+      float qb = -(A*d+D)+(B*c+C*b);
+      float qc = A*D-B*C;
 
-void scale(TH1D * h) {
-  double x_low_value = 0;
-  double x_high_value = 100;
+      float S;
+      
+      if (A == 0 || B == 0 || C == 0 || D == 0 || fabs(qa) < 1e-10 || qb*qb - 4*qa*qc < 0) continue;
+      
+      float Sp = (-qb + TMath::Sqrt(qb*qb - 4*qa*qc))/2/qa;
+      float Sm = (-qb - TMath::Sqrt(qb*qb - 4*qa*qc))/2/qa;
+      if (Sp < A && Sp > 0) {
+        S = Sp;
+      }
+      else {
+        S = Sm;
+      }
 
-  // Get the X-axis object
-  TAxis *xaxis = h->GetXaxis();
+      H[i]->Fill(S/A);
+      H2->Fill(i,S/A);
+    }
+    // Non-bootstrap version
+    float A = hA->GetBinContent(i+1);
+    float B = hB->GetBinContent(i+1);
+    float C = hC->GetBinContent(i+1);
+    float D = hD->GetBinContent(i+1);
+    float a = ha->GetBinContent(i+1);
+    float b = hb->GetBinContent(i+1);
+    float c = hc->GetBinContent(i+1);
+    float d = hd->GetBinContent(i+1);
 
-  // Find the corresponding bin numbers
-  Int_t bin_low = xaxis->FindBin(x_low_value);
-  Int_t bin_high = xaxis->FindBin(x_high_value);
+    float qa = d-b*c;
+    float qb = -(A*d+D)+(B*c+C*b);
+    float qc = A*D-B*C;
 
-  // Sum the bin contents within the range
-  double entries_in_range = 0;
-  for (Int_t bin = bin_low; bin <= bin_high; ++bin) {
-    entries_in_range += h->GetBinContent(bin);
+    float S;
+
+    if (A == 0 || B == 0 || C == 0 || D == 0 || fabs(qa) < 1e-10 || qb*qb - 4*qa*qc < 0) continue;
+
+    float Sp = (-qb + TMath::Sqrt(qb*qb - 4*qa*qc))/2/qa;
+    float Sm = (-qb - TMath::Sqrt(qb*qb - 4*qa*qc))/2/qa;
+    if (Sp < A && Sp > 0) {
+      S = Sp;
+    }
+    else {
+      S = Sm;
+    }
+    oH->SetBinContent(i+1,S/A);
+    oH_noleak->SetBinContent(i+1, 1-B*C/A/D);
+
+    if (H[i]->GetEntries() > 0) {
+      double probs[3] = {0.16, 0.50, 0.84};
+      double q[3];
+      H[i]->GetQuantiles(3, q, probs);
+      cout << q[0] << " " << q[1] << " " << q[2] << endl;
+
+      oh->SetPoint(i, hA->GetBinCenter(i+1),q[1]);
+      oh->SetPointError(i, hA->GetBinWidth(i+1)/2.0,hA->GetBinWidth(i+1)/2.0,q[1] - q[0],q[2] - q[1]);
+    }
   }
-  h->Scale(1.0/entries_in_range);
-}
-
-TH1D * getcombinedhist(vector<TFile*> files, vector<int> samples, string histname, bool isphoton) {
-  if (files.size() != samples.size()) return nullptr;
-  ana anaclone;
-  vector<TH1D*> hists;
-  for (int i = 0; i < files.size(); i++) {
-    hists.push_back((TH1D*)files.at(i)->Get(histname.c_str()));
-  }
-  TH1D * thehist = anaclone.combineMC(hists,samples,isphoton);
-  return thehist;
-}
-
-TH1D * combine_hists(TH1D * A, TH1D * B, TH1D * C, TH1D * D) {
-  TH1D * hnum = (TH1D*)A->Clone();
-  hnum->SetName("combinednum");
-  TH1D * hden = (TH1D*)A->Clone();
-  hden->SetName("combinedden");
-  hnum->Reset("ICES");
-  hden->Reset("ICES");
-  hnum->Multiply(B,C);
-  hden->Multiply(A,D);
   
-  TH1D * h = (TH1D*)A->Clone();
-  h->SetName("combined");
-  h->Reset("ICES");
-  h->Divide(hnum,hden);
-  for (int i = 1; i < h->GetNbinsX(); i++) {
-    if (h->GetBinContent(i) > 0) h->SetBinContent(i,1-h->GetBinContent(i));
+  TF1 * func = new TF1("func","TMath::Erf((x - [1])/[2])",8,100);
+  func->SetParameter(0,1);
+  func->SetParameter(1,13);
+  func->SetParameter(2,5);
+  oh->Fit(func,"RIMQ0");
+
+  TFile * of = TFile::Open("/home/samson72/sphnx/gammajet/hists/purity.root","RECREATE");
+  for (int i = 0; i < ana::nPurityBins; i++) {
+    H[i]->Write();
   }
-  return h;
+  H2->Write();
+  oh->Write();
+  oH->Write();
+  oH_noleak->Write();
+  func->Write();
+
+  return oh;
 }
 
     
 void puritymaker() {
-  ana anaclone;
-  gStyle->SetOptStat(0);
-  TFile * f = TFile::Open("hists/histsData.root");
-  TFile * f05p = TFile::Open("hists/histsPhoton5.root");
-  TFile * f10p = TFile::Open("hists/histsPhoton10.root");
-  TFile * f20p = TFile::Open("hists/histsPhoton20.root");
-  TFile * f05j = TFile::Open("hists/histsJet5.root");
-  TFile * f10j = TFile::Open("hists/histsJet10.root");
-  TFile * f20j = TFile::Open("hists/histsJet20.root");
-  TFile * f30j = TFile::Open("hists/histsJet30.root");
-  TFile * f50j = TFile::Open("hists/histsJet50.root");
-  TFile * f70j = TFile::Open("hists/histsJet70.root");
   
   const char * histname = "hclusterptabcd";
-  TH1D * hd[4]; // for ABCD
+  drawer d;
+  TH1D * h[4]; // for ABCD
   TH1D * hp[4];
+  TH1D * fp[4];
   for (int i = 0; i < 4; i++) {
-    hd[i] = (TH1D*)f->Get(Form("%s%i",histname,i));
-    hd[i]->SetName(Form("hdata%i",i));
-    hp[i] = getcombinedhist({f05p,f10p,f20p},{5,10,20},Form("%s%i",histname,i),1);
-    hp[i]->SetName(Form("hphoton%i",i));
-    hd[i]->Sumw2();
-    hp[i]->Sumw2();
+    h[i] = d.get(Form("%s%i",histname,i),0);
+    hp[i] = d.get(Form("%s%i",histname,i),1);
+    fp[i] = (TH1D*)hp[i]->Clone(Form("fp%i",i));
+    fp[i]->Divide(hp[i],hp[0]);
   }
-  TH1D * od = combine_hists(hd[0],hd[1],hd[2],hd[3]);
-  TF1 * func = new TF1("func","[0]*TMath::Erf((x - [1])/[2])",8,30);
+  TCanvas * cf = new TCanvas("cf","",700,700);
+  int colors[4] = {kBlack,kRed, kBlue, kOrange};
+  const char * letters[4] = {"A","B","C","D"};
+  TLegend * lf = new TLegend(0.5, 0.65, 0.8, 0.8);
+  for (int i = 1; i < 4; i++) {
+    fp[i]->GetXaxis()->SetRangeUser(10,35);
+    fp[i]->GetYaxis()->SetRangeUser(0,1.2);
+    fp[i]->SetLineColor(colors[i]);
+    fp[i]->SetLineWidth(2);
+    fp[i]->Draw("hist e same");
+    lf->AddEntry(fp[i],Form("N_{A}/N_{%s}",letters[i]));
+  }
+  lf->SetLineWidth(0);
+  lf->Draw();
+  return;
+
+
+  TGraphAsymmErrors * od = combine_hists(h,fp);
+  
+  TF1 * func = new TF1("func","TMath::Erf((x - [1])/[2])",8,30);
   func->SetParameter(0,1);
   func->SetParameter(1,13);
   func->SetParameter(2,5);
   od->Fit(func,"RIMQ0");
   //od->Draw();
-  //TH1D * op = combine_hists(hp[0],hp[1],hp[2],hp[3]);
-  TFile * fout = TFile::Open("hists/purity.root","RECREATE");
-  od->Write();
-  func->Write();
-  for (int i = 0; i < 4; i++) {
-    hd[i]->Write();
-    hp[i]->Write();
-  }
+  TCanvas * co = new TCanvas("co","",700,700);
+  od->SetLineColor(kBlack);
+  od->SetMarkerColor(kBlack);
+  od->SetMarkerSize(1);
+  od->SetMarkerStyle(20);
+  od->GetYaxis()->SetRangeUser(0,1.2);
+  od->GetXaxis()->SetRangeUser(8,40);
+  od->Draw("ap");
+  od->GetXaxis()->SetTitle("leading cluster p_{T}");
+  func->Draw("same");
+  TLegend * lo = new TLegend(.5,.4,.8,.6);
+  lo->AddEntry(od,"purity");
+  lo->AddEntry(func,"Error function fit");
+  lo->SetLineWidth(0);
+  lo->Draw();
+  d.drawAll({},{"R=0.4","paired clusters","leakage correction applied"},0.15,0.8,20,700);
+  d.drawText(Form("P(p_T) = erf((x - %.2f)/%.2f)",func->GetParameter(1), func->GetParameter(2)), .5, .8,1);
+
+  //TFile * fout = TFile::Open("hists/purity.root","RECREATE");
+  //od->Write();
+  //func->Write();
   TCanvas * c = new TCanvas("c","",700,700);
   gPad->SetTicks();
   gPad->SetLogy();
   gStyle->SetOptStat(0);
-  hd[0]->SetLineColor(kBlack);
-  hd[1]->SetLineColor(kBlue);
-  hd[2]->SetLineColor(kOrange);
-  hd[3]->SetLineColor(kRed);
+  h[0]->SetLineColor(kBlack);
+  h[1]->SetLineColor(kBlue);
+  h[2]->SetLineColor(kOrange);
+  h[3]->SetLineColor(kRed);
   TLegend * l = new TLegend(.5,.4,.8,.6);
   l->SetLineWidth(0);
   string text[4] = {"Region A","Region B","Region C","Region D"};
   for (int i = 0; i < 4; i++) {
-    hd[i]->SetLineWidth(2);
-    hd[i]->GetYaxis()->SetRangeUser(0.5,1e5);
-    hd[i]->Draw("hist same");
-    l->AddEntry(hd[i],text[i].c_str());
+    h[i]->SetLineWidth(2);
+    h[i]->GetYaxis()->SetRangeUser(0.5,1e5);
+    h[i]->GetXaxis()->SetRangeUser(8,40);
+    h[i]->Draw("hist same");
+    l->AddEntry(h[i],text[i].c_str());
   }
   l->Draw();
-  anaclone.drawAll({"p+p Run24"},{"Paired clusters"},.5,.8,20,700);
+  d.drawAll({"p+p Run24"},{"Paired clusters"},.5,.8,20,700);
 }

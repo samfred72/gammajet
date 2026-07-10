@@ -82,7 +82,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
       return;
     }
 
-    TH1D* h = d.get(histname,2);
+    TH1D* h = d.get(histname,1);
 
     meanp[i] = h->GetMean();
     merrp[i] = h->GetMeanError();
@@ -187,8 +187,8 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   // -----------------------------
   // Grid setup
   // -----------------------------
-  int na = (!domulti ? 1000 : 200); float lowa =  0.80, higha = 1.00;
-  //int na = (!domulti ? 1000 : 200); float lowa =  0.95, higha = 1.05;
+  //int na = (!domulti ? 1000 : 200); float lowa =  0.80, higha = 1.00;
+  int na = (!domulti ? 1000 : 200); float lowa =  0.95, higha = 1.05;
   int nb = (!domulti ? 1 : 100); float lowb = (!domulti? 0 : -0.002), highb = (!domulti? 0 : 0.002);
   int nc = (use_quad ? 100 : 1); float lowc = (use_quad ? -0.002 : 0), highc = (use_quad ? 0.002 : 0);
 
@@ -200,7 +200,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
   float minchisq = FLT_MAX;
   float minpa=0, minpb=0, minpc=0;
 
-  TH1D * hchisq = new TH1D("hchisq",";#Chi^{2};counts",1000,0,10000);
+  TH1D * hchisq = new TH1D("hchisq",";#Chi^{2};counts",na,lowa-0.00001,higha-0.00001);
   float bestmeans    [nTot];
   float bestmerrs    [nTot];
   float standardmeans[nTot];
@@ -239,7 +239,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
     else if (strcmp(form, "HERWIG") == 0) {
       histname = Form("hratio_%i_%i_3_0_0_0",i,ir);
     }
-    hxj_MC[i] = (TH1D*)d.get(histname,2,-1)->Clone(Form("hxj_MC_%i",i));
+    hxj_MC[i] = (TH1D*)d.get(histname,1,-1)->Clone(Form("hxj_MC_%i",i));
     hxj_data[i] = (TH1D*)d.get(histname,0,-1)->Clone(Form("hxj_data_%i",i));
     hxj_corrected[i] = new TH1D(Form("hxj_corrected_%i",i),";x_J;Normalized Counts",25,0,2);
   }
@@ -329,7 +329,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
           }
         }
 
-        hchisq->Fill(chisq);
+        hchisq->Fill(pa,chisq);
         hchisq2d->Fill(pa,pb,chisq);
         result.push_back({pa,pb,chisq});
       }
@@ -484,7 +484,7 @@ void grid_insitu(const char * form = "nominal", int ir = 2, int version = 0) {
 
   const char * gammatext = "";
   if (dogamma && !domulti) gammatext = "_gammajet";
-  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_%s_jet_%s%s.root",form,rname,gammatext);
+  const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/insitu_fit_%s_%s%s.root",form,rname,gammatext);
   cout << "Writing output to " << wfilename << endl;
   TFile * wf = TFile::Open(wfilename,"RECREATE");
   func->Write();

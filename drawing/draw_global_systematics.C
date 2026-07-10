@@ -69,7 +69,7 @@ void draw_global_systematics(int ir=2, int type=3) {
     if (i == 0) {
       func[i]->SetTitle("");
       func[i]->GetYaxis()->SetRangeUser(-0.1,0.2);
-      func[i]->GetYaxis()->SetTitle("#it{in situ} correction");
+      func[i]->GetYaxis()->SetTitle("Data-to-MC JES correction");
       func[i]->GetXaxis()->SetTitle("jet p_{T} [GeV]");
     }
   }
@@ -90,7 +90,8 @@ void draw_global_systematics(int ir=2, int type=3) {
       },0,100,0);
   
 
-  TLegend * lbottom = new TLegend(0.17,0.6,0.55,0.89);
+  TLegend * lbottom = new TLegend(0.5754,0.575,0.8954,0.865);
+  lbottom->SetFillStyle(0);
   TF1 * ratios[nfiles-1];
   TF1 * ratios_sym[nfiles-1];
   for (int i = 1; i < nfiles; i++) {
@@ -106,7 +107,8 @@ void draw_global_systematics(int ir=2, int type=3) {
     if (i == 1) {
       ratios[i-1]->SetTitle("");
       ratios[i-1]->GetYaxis()->SetRangeUser(-0.1,0.2);
-      ratios[i-1]->GetXaxis()->SetRangeUser(10,60);
+      ratios[i-1]->GetXaxis()->SetRangeUser(10,100);
+      //ratios[i-1]->GetXaxis()->SetRangeUser(10,60);
       ratios[i-1]->GetYaxis()->SetTitle("Relative Uncertainty");
       ratios[i-1]->GetXaxis()->SetTitle("jet p_{T} [GeV]");
       ratios[i-1]->GetXaxis()->SetTitleOffset(1.3);
@@ -192,9 +194,9 @@ void draw_global_systematics(int ir=2, int type=3) {
   systematic_up->Draw("same");
   systematic_down->Draw("same");
   
-  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta| < %1.1f", 1.1 - ana::JetRs[ir]),Form("Jet R=%1.1f",ana::JetRs[ir])},.55,.83,20, 700);
+  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta_{jet}| < %1.1f", 1.1 - ana::JetRs[ir]),Form("Jet R=%1.1f",ana::JetRs[ir])},.17,.83,25, 700);
   
-  lbottom->AddEntry(systematic_up,"Total Systematic");
+  lbottom->AddEntry(systematic_up,"Total Systematic","L");
   lbottom->SetLineWidth(0);
   lbottom->Draw();
   
@@ -211,12 +213,13 @@ void draw_global_systematics(int ir=2, int type=3) {
   tl->GetEntry(0);
 
   float xmin = 10;
-  float xmax = 60;
+  float xmax = 100;
+  //float xmax = 60;
   float ymin = 0.85;
   float ymax = 1.10;
   TH1F* frame2 = c2->DrawFrame(xmin, ymin, xmax, ymax);
   frame2->GetXaxis()->SetTitle("jet p_{T} [GeV]");
-  frame2->GetYaxis()->SetTitle("#it{in situ} JES correction");
+  frame2->GetYaxis()->SetTitle("Data-to-MC JES correction");
   frame2->GetXaxis()->SetTitleOffset(1.3);
   c2->GetFrame()->SetLineWidth(0);
   c2->Modified();
@@ -264,14 +267,14 @@ void draw_global_systematics(int ir=2, int type=3) {
     bands->SetPointError(i, 0, 0, err_low, err_high);
   }
   
-  bandl->SetFillColorAlpha(kGreen,0.8);
-  bandl->SetFillStyle(3001);
+  bandl->SetFillColorAlpha(kGreen,0.6);
+  //bandl->SetFillStyle(3001);
   bandl->SetLineColor(kGreen);
   bandl->SetLineWidth(1);
   bandl->Draw("L3 same");
   
-  bands->SetFillColorAlpha(kBlue,0.5);
-  bands->SetFillStyle(3001);
+  bands->SetFillColorAlpha(kBlue,0.2);
+  //bands->SetFillStyle(3001);
   bands->SetLineColor(kBlue);
   bands->SetLineWidth(1);
   bands->Draw("L3 same");
@@ -324,16 +327,16 @@ void draw_global_systematics(int ir=2, int type=3) {
   linelow->Draw("same");
 
   TLegend * leg2 = new TLegend(0.2,0.15,0.6,0.3);
-  leg2->AddEntry(bandl, "statistical uncertainty","FL");
+  leg2->AddEntry(bandl, "statistical uncertainty","F");
   //leg2->AddEntry(bandl, Form("#splitline{%.3f + %.1e*pT}{#chi^{2} = %.2f}", flb->GetParameter(0), flb->GetParameter(1), chisql));
-  leg2->AddEntry(bands, Form("systematic uncertainty"),"FL");
-  leg2->AddEntry(linehigh, Form("total uncertainty"),"FL");
+  leg2->AddEntry(bands, Form("systematic uncertainty"),"F");
+  leg2->AddEntry(linehigh, Form("total uncertainty"),"L");
   
   leg2->SetLineWidth(0);
   leg2->SetFillStyle(0);
   leg2->Draw();
   
-  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta| < %1.1f",1.1 - ana::JetRs[ir]), Form("Jet R=%1.1f",ana::JetRs[ir])},.2,.83,20, 700);
+  d.drawAll({"p + p #sqrt{s} = 200 GeV"},{Form("|#eta_{jet}| < %1.1f",1.1 - ana::JetRs[ir]), Form("Jet R=%1.1f",ana::JetRs[ir])},.2,.83,25, 700);
   //d.drawAll({"p + p #sqrt{s} = 200 GeV"},{"|vz| < 60 cm", Form("|#eta| < %1.1f",1.1 - ana::JetRs[ir]), Form("#it{in situ} correction: %.3f + %.1e*pT", (flb->GetParameter(0)+func[nfiles-1]->GetParameter(0))/2.0, (flb->GetParameter(1)+func[nfiles-1]->GetParameter(1))/2.0),Form("Jet R=%1.1f",ana::JetRs[ir])},.2,.83,20, 700);
 
   c2->SaveAs(Form("/home/samson72/sphnx/gammajet/pdfs/note/global_insitu_%s%s.pdf",rname,filetag));

@@ -30,6 +30,24 @@ Int_t ana::findPtBin(double value)
   }
   return -1;
 }
+Int_t ana::findUnfoldPtBin(double value)
+{
+  for (int i = 0; i < nUnfoldPtBins; ++i) {
+    if (value >= unfoldPtBins[i] && value < unfoldPtBins[i + 1]) {
+      return  i;
+    }
+  }
+  return -1;
+}
+Int_t ana::findUnfoldXjBin(double value)
+{
+  for (int i = 0; i < nUnfoldXjBins; ++i) {
+    if (value >= unfoldXjBins[i] && value < unfoldXjBins[i + 1]) {
+      return  i;
+    }
+  }
+  return -1;
+}
 Int_t ana::findTrijetPtBin(double value)
 {
   for (int i = 0; i < nTrijetPtBins; ++i) {
@@ -60,14 +78,15 @@ Int_t ana::findBdtBin(double value)
 
 Int_t ana::findUnfoldBin(double xj, double pt)
 {
-  if (xj > 2.0) return -1;
-  int ixj = (int)(xj/2.0 * nUnfoldBins);
-  int ipt = findPtBin(pt);
-    
-  //if (xj < 0) cout << endl << endl << "XJ LOWER THAN 1!!! " << xj << ": " << ixj << " " << pt << ": " << ipt << " " <<ipt*nUnfoldBins + ixj << endl << endl;
+  int ipt = findUnfoldPtBin(pt);
+  int ixj = findUnfoldXjBin(xj);
+   
+  if (xj < 0) return -1;
   if (ipt < 0) return -1;
-  if (ixj < 0) return -1;
-  return ipt*nUnfoldBins + ixj;
+  
+  if (xj >= 2.0) ixj = nUnfoldXjBins;
+ 
+  return ipt*(nUnfoldXjBins+2) + ixj + 1; // +2 for underflow and overflow bins, +1 for the undeflow bin
 }
 Int_t ana::findabcdBin(double iso, double bdt, float pt, int bin)
 {
@@ -98,7 +117,7 @@ Int_t ana::findabcdBin(double iso, double bdt, float pt, int bin)
   else {
     bool b_isiso = isiso;
     bool b_isbdt = isbdt;
-    int iabcd = (((b_isiso << 0b1) | b_isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    int iabcd = (((b_isbdt << 0b1) | b_isiso) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
     return iabcd;
   }
 }
@@ -132,7 +151,7 @@ Int_t ana::findabcdBin(double iso, double bdt, int bin)
   else {
     bool b_isiso = isiso;
     bool b_isbdt = isbdt;
-    int iabcd = (((b_isiso << 0b1) | b_isbdt) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    int iabcd = (((b_isbdt << 0b1) | b_isiso) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
     return iabcd;
   }
 }
@@ -164,7 +183,7 @@ Int_t ana::findabcdBin(double iso, int showershape, int bin) {
   else {
     bool b_isiso = isiso;
     bool b_istight = istight;
-    int iabcd = (((b_isiso << 0b1) | b_istight) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
+    int iabcd = (((b_istight << 0b1) | b_isiso) ^ 0b11); // silly bitwise operations to map isiso+isbdt->A,B,C,D (index 0,1,2,3)
     return iabcd;
   }
 }
@@ -196,4 +215,11 @@ float ana::getPurity(float low, float high) {
   float val = func->Integral(low,high)/(high-low);
   f->Close();
   return val;
+}
+float ana::getPurity(float val) {
+  TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/purity.root");
+  TF1 * func = (TF1*)f->Get("func");
+  float ret = func->Eval(val);
+  f->Close();
+  return ret;
 }

@@ -110,7 +110,7 @@ class histmaker : public treeuser {
         hbdt[i] = new TH1D(Form("hbdt%i",i),";bdt score;counts",120,-0.1,1.1);
       }
       for (int i = 0; i < 4; i++) {
-        hclusterptabcd[i] = new TH1D(Form("hclusterptabcd%i",i),";p_{T}^{lead cluster};Counts",100,0,100);
+        hclusterptabcd[i] = new TH1D(Form("hclusterptabcd%i",i),";p_{T}^{lead cluster};Counts",ana::nPurityBins,ana::purityBins);
       }
       
       treefilename = (trigger == "Data" ? Form("/home/samson72/sphnx/gammajet/hists/tree_%s.root",trigger.c_str()) : Form("/home/samson72/sphnx/gammajet/hists/tree_%s_%s.root",sim.c_str(),trigger.c_str()));

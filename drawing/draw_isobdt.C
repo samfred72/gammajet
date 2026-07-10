@@ -28,7 +28,7 @@ void draw_isobdt() {
   TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/hists_Data.root");
   
   float drawx = .45;
-  float drawy = .55;
+  float drawy = .65;
   float fontsize = 30;
   int ptbin = 5;
 
@@ -36,104 +36,92 @@ void draw_isobdt() {
   TH2D * hdata = (TH2D*)f->Get(histname);
   TH2D * hmcp = d.combineMC2d(histname,1);
 
-  TBox * bdata = new TBox(-1, ana::bdtGoodLow[0], ana::isoBins[0], ana::bdtGoodHigh[0]);
-  bdata->SetLineColor(kRed);
-  bdata->SetFillStyle(0);
-  bdata->SetLineWidth(4);
-
-
-  float offset = 0.15; 
-  TLine * l1 = new TLine(ana::isoBins[0], ana::bdtGoodLow[0], ana::isoBins[0], ana::bdtGoodHigh[0]);
-  TLine * l2 = new TLine(-1-offset,ana::bdtGoodHigh[0],ana::isoBins[0]+offset,ana::bdtGoodHigh[0]);
-  TLine * l3 = new TLine(-1,ana::bdtGoodHigh[0],-1,ana::bdtGoodLow[0]);
-  TLine * l4 = new TLine(-1-offset,ana::bdtGoodLow[0],ana::isoBins[0]+offset,ana::bdtGoodLow[0]);
-  
-  TLine * l5 = new TLine(-1,ana::bdtBadLow[0],ana::isoBins[0],ana::bdtBadLow[0]);
-  TLine * l6 = new TLine(ana::isoBins[0],ana::bdtBadLow[0],ana::isoBins[0],ana::bdtBadHigh[0]);
-  TLine * l7 = new TLine(ana::isoBins[0],ana::bdtBadHigh[0],-1,ana::bdtBadHigh[0]);
-  TLine * l8 = new TLine(-1,ana::bdtBadHigh[0],-1,ana::bdtBadLow[0]);
-  
-  TLine * l9 = new TLine(ana::isoBinsHigh[0],ana::bdtBadLow[0],20,ana::bdtBadLow[0]);
-  TLine * l10 = new TLine(20,ana::bdtBadLow[0],20,ana::bdtBadHigh[0]);
-  TLine * l11 = new TLine(20,ana::bdtBadHigh[0],ana::isoBinsHigh[0],ana::bdtBadHigh[0]);
-  TLine * l12 = new TLine(ana::isoBinsHigh[0],ana::bdtBadHigh[0],ana::isoBinsHigh[0],ana::bdtBadLow[0]);
-  
-  TLine * l13 = new TLine(ana::isoBinsHigh[0],ana::bdtGoodLow[0],20,ana::bdtGoodLow[0]);
-  TLine * l14 = new TLine(20,ana::bdtGoodLow[0],20,ana::bdtGoodHigh[0]);
-  TLine * l15 = new TLine(20,ana::bdtGoodHigh[0],ana::isoBinsHigh[0],ana::bdtGoodHigh[0]);
-  TLine * l16 = new TLine(ana::isoBinsHigh[0],ana::bdtGoodHigh[0],ana::isoBinsHigh[0],ana::bdtGoodLow[0]);
-
-  const int nlines = 16;
-  TLine * lines[nlines] = {l1,l2,l3,l4,l5,l6,l7,l8,l9,l10,l11,l12,l13,l14,l15,l16};
-  for (int i = 0; i < nlines; i++) {
-    lines[i]->SetLineColor(kRed);
-    lines[i]->SetLineWidth(5);
-    if (i == 3) break;
+  TBox * box1 = new TBox(-1, ana::bdtGoodLow[0], ana::isoBins[0], ana::bdtGoodHigh[0]);
+  TBox * box2 = new TBox(-1, ana::bdtBadLow[0], ana::isoBins[0], ana::bdtBadHigh[0]);
+  TBox * box3 = new TBox(ana::isoBinsHigh[0], ana::bdtGoodLow[0], 20, ana::bdtGoodHigh[0]);
+  TBox * box4 = new TBox(ana::isoBinsHigh[0], ana::bdtBadLow[0], 20, ana::bdtBadHigh[0]);
+  TBox * boxes[4] = {box1,box2,box3,box4};
+  for (int i = 0; i < 4; i++) {
+    boxes[i]->SetLineColor(kBlack);
+    boxes[i]->SetFillStyle(0);
+    boxes[i]->SetLineWidth(4);
   }
+  
   TCanvas * c = new TCanvas("c","",1400,700);
   c->Divide(2,1,0,0);
   c->cd(1);
   gPad->SetLogz();
   gPad->SetTopMargin(.05);
   gPad->SetLeftMargin(.25);
+  gPad->SetBottomMargin(0.15);
   gPad->SetFillStyle(4000);
+  gPad->SetTicks(1,1);
   hdata->Scale(1.0/hdata->Integral());
   hdata->GetZaxis()->SetRangeUser(1e-5,1e-2);
   hdata->Draw("col");
   hdata->GetXaxis()->SetTitle("E_{T}^{iso} [GeV]");
+  hdata->GetXaxis()->ChangeLabel(-1,-1,0);
   hdata->GetYaxis()->SetTitle("BDT Score");
-  bdata->Draw();
-  //for (int i = 0; i < nlines; i++) {
-  //  lines[i]->Draw("same");
-  //  if (i == 3) break;
-  //}
+  hdata->GetXaxis()->SetLabelSize(.05);
+  hdata->GetYaxis()->SetLabelSize(.05);
+  hdata->GetXaxis()->SetTitleSize(.05);
+  hdata->GetYaxis()->SetTitleSize(.05);
+  for (int i = 0; i <4; i++) {
+    boxes[i]->Draw();
+  }
   
-  TBox * box = new TBox(4, .25, 19, .63);
-  TBox * box2 = new TBox(4, .25, 19, .63);
-  box->SetFillColor(kWhite);
-  box->SetFillStyle(1001);
-  box2->SetLineWidth(2);
-  box2->SetLineColor(kBlack);
-  box2->SetFillStyle(0);
-  box->Draw();
-  box2->Draw();
-  d.drawAll({"p+p #sqrt{s}=200 GeV"},{Form("%0.0f GeV < p_{T} < %0.0f GeV",ana::ptBins[ptbin],ana::ptBins[ptbin+1]),"Paired clusters"},drawx,drawy,fontsize,700);
-  //d.drawText("A",.15,.90, kBlack, 25);
-  //d.drawText("B",.15,ana::bdtBadHigh[0]-.05, kBlack, 25);
-  //d.drawText("C",.35,.90, kBlack, 25);
-  //d.drawText("D",.35,ana::bdtBadHigh[0]-.05, kBlack, 25);
+  TBox * lbox = new TBox(7, .34, 11, .47);
+  TBox * lbox2 = new TBox(7, .34, 11, .47);
+  lbox->SetFillColor(kWhite);
+  lbox->SetFillStyle(1001);
+  lbox2->SetLineWidth(2);
+  lbox2->SetLineColor(kBlack);
+  lbox2->SetFillStyle(0);
+  d.drawText("A",.28,.90, kBlack, 35);
+  d.drawText("B",.28,ana::bdtBadHigh[0]-.05, kBlack, 35);
+  d.drawText("C",.48,.90, kBlack, 35);
+  d.drawText("D",.48,ana::bdtBadHigh[0]-.05, kBlack, 35);
+  lbox->Draw();
+  lbox2->Draw();
+  d.drawText("Data",0.55,.45,kBlack,(int)(fontsize*1.25));
+  //d.drawAll({"p+p #sqrt{s}=200 GeV"},{Form("%0.0f GeV < p_{T}^{#gamma} < %0.0f GeV",ana::ptBins[ptbin],ana::ptBins[ptbin+1]),"Jet R=0.4","|#eta_{jet}| < 0.7","#Delta#phi > 7#pi/8"},drawx,drawy,fontsize,700);
   
   c->cd(2);
   gPad->SetTopMargin(.05);
   gPad->SetRightMargin(.15);
+  gPad->SetBottomMargin(0.15);
   gPad->SetLogz();
   gPad->SetFillStyle(4000);
+  gPad->SetTicks(1,1);
   hmcp->Scale(1.0/hmcp->Integral());
   hmcp->GetZaxis()->SetRangeUser(1e-5,1e-2);
   hmcp->GetXaxis()->SetTitle("E_{T}^{iso} [GeV]");
+  hmcp->GetXaxis()->SetLabelSize(.05);
+  hmcp->GetYaxis()->SetLabelSize(.05);
+  hmcp->GetZaxis()->SetLabelSize(.05);
+  hmcp->GetXaxis()->SetTitleSize(.05);
+  hmcp->GetYaxis()->SetTitleSize(.05);
   hmcp->Draw("colz");
-  bdata->Draw();
-  //for (int i = 0; i < nlines; i++) {
-  //  lines[i]->Draw("same");
-  //  if (i == 3) break;
-  //}
-  //d.drawAll({"MC Photon"},{Form("%0.0f GeV < p_{T} < %0.0f GeV",ana::ptBins[ptbin],ana::ptBins[ptbin+1]),"Paired clusters"},drawx-0.2,drawy,fontsize,700);
-  TBox * box3 = new TBox(9, .43, 19, .56);
-  TBox * box4 = new TBox(9, .43, 19, .56);
-  box3->SetFillColor(kWhite);
-  box3->SetFillStyle(1001);
-  box4->SetLineWidth(2);
-  box4->SetLineColor(kBlack);
-  box4->SetFillStyle(0);
-  box3->Draw();
-  box4->Draw();
+  for (int i = 0; i <4; i++) {
+    boxes[i]->Draw();
+  }
+  TBox * lbox3 = new TBox(9, .34, 19, .47);
+  TBox * lbox4 = new TBox(9, .34, 19, .47);
+  lbox3->SetFillColor(kWhite);
+  lbox3->SetFillStyle(1001);
+  lbox4->SetLineWidth(2);
+  lbox4->SetLineColor(kBlack);
+  lbox4->SetFillStyle(0);
   
-  d.drawText("Pythia8 #gamma+jet",drawx,drawy-0.05,kBlack,(int)(fontsize*1.25));
-  //d.drawText("A",.05,.90, kBlack, 25);
-  //d.drawText("B",.05,ana::bdtBadHigh[0]-.05, kBlack, 25);
-  //d.drawText("C",.25,.90, kBlack, 25);
-  //d.drawText("D",.25,ana::bdtBadHigh[0]-.05, kBlack, 25);
+  d.drawText("A",.05,.90, kBlack, 35);
+  d.drawText("B",.05,ana::bdtBadHigh[0]-.05, kBlack, 35);
+  d.drawText("C",.25,.90, kBlack, 35);
+  d.drawText("D",.25,ana::bdtBadHigh[0]-.05, kBlack, 35);
+  
+  lbox3->Draw();
+  lbox4->Draw();
+  d.drawText("Pythia8 #gamma+jet",drawx,.45,kBlack,(int)(fontsize*1.25));
 
-  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/note/isobdt.pdf");
+  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/isobdt.pdf");
 
 }

@@ -28,26 +28,28 @@ void drawer::drawMany(vector<string> features, float drawx, float drawy, int fon
 }
 
 void drawer::drawAll(vector<string> samples, vector<string> features, float drawx, float drawy, int fontsize, float csize) {
-  float titlescale = 1.5;// * 700.0/csize;
+  float titlescale = 1.25;// * 700.0/csize;
   float subtitlescale = 1.25;// * 700.0/csize;
-  float ydiff = fontsize * 0.002 * 700.0/csize;
-  drawText("#bf{#it{sPHENIX}} Internal",drawx,drawy,1,(int)fontsize*titlescale);
+  float ydiff = fontsize * 0.0017 * 700.0/csize;
+  drawText("#bf{#it{sPHENIX}} #kern[0.5]{Internal}",drawx,drawy,1,(int)fontsize*titlescale);
+  //drawText("#bf{#it{sPHENIX}} Preliminary",drawx,drawy,1,(int)fontsize*titlescale);
   for (unsigned i = 0; i < samples.size(); i++) {
     drawText(samples.at(i).c_str(),drawx,drawy-ydiff*subtitlescale*(i+1),1,(int)fontsize*subtitlescale);
   }
   for (unsigned i = 0; i < features.size(); i++) {
-    drawText(features.at(i).c_str(),drawx,drawy-ydiff*subtitlescale*samples.size()-ydiff*(i+1),1,fontsize);
+    drawText(features.at(i).c_str(),drawx,drawy-ydiff*subtitlescale*samples.size()-ydiff*(i+1)*subtitlescale,1,fontsize);
   }
 }
 
 void drawer::format(TH1D * h, int type) {
-  int colors[4] = {kBlue, kMagenta+1, kSpring-1, kGray+3};
+  int colors[4] = {kBlue, kMagenta, kSpring-1, kGray+3};
   h->SetLineColor(colors[type]);
   h->SetMarkerColor(colors[type]);
   scale(h,0,2);
   h->GetYaxis()->SetRangeUser(0,h->GetMaximum()*1.5);
   if (type == 0) h->SetLineWidth(2);
   else h->SetLineWidth(1);
+  h->SetLineWidth(2);
 }
 void drawer::format(TF1 * f, int type) {
   int colors[4] = {kBlue, kMagenta+1, kSpring-1, kGray+3};

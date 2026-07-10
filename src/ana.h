@@ -23,7 +23,10 @@ class ana {
     static Bool_t   PassEtaCut(float eta, float vz); 
     static Double_t GetShiftedEta(float _vz, float _eta);
     static float    getPurity(float low, float high);
+    static float    getPurity(float val);
     static Int_t findPtBin(double value);
+    static Int_t findUnfoldPtBin(double value);
+    static Int_t findUnfoldXjBin(double value);
     static Int_t findTrijetPtBin(double value);
     static Int_t findabcdBin(double iso, double bdt, int bin = 0);
     static Int_t findabcdBin(double iso, double bdt, float pt, int bin = 0);
@@ -58,8 +61,9 @@ class ana {
 
     static constexpr int nCalibBins = 7; // Uncalib, JES calibrated, JES calibrated and JER corrected, JES+JER+reweighted, JES+JER+photon smeared, JERhigh, JERlow
     static constexpr int nPtBins = 9;
+    static constexpr int nUnfoldPtBins = 4;
     static constexpr int nTrijetPtBins = 6;
-    static constexpr int nUnfoldBins = 20;
+    static constexpr int nUnfoldXjBins = 16;
     static constexpr int nIsoBdtBins = 3;
     static constexpr int nBdtBins = 4;
     static constexpr int nxjBins = 3;
@@ -69,14 +73,16 @@ class ana {
     static constexpr int nEmfracBins = 3;
     static constexpr int singleptlow = 15;
     static constexpr int singlepthigh = 35;
+    static constexpr int nPurityBins = 11;
     static constexpr double ptBins[nPtBins+1] = {10,11,12,13,14,15,17,19,25,35};
+    static constexpr double unfoldPtBins[nUnfoldPtBins+1] = {15,20,25,30,100};
+    static constexpr double unfoldXjBins[nUnfoldXjBins+1] = {0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.5,1.7,2.0};
     static constexpr double trijetPtBins[nPtBins+1] = {20,25,30,35,40,50,60};
-    //static constexpr double isoBins[nIsoBdtBins] = {2,2,2};
     static constexpr double isoBins[nIsoBdtBins] = {2,2,1.5};
     static constexpr double isoBinsHigh[nIsoBdtBins] = {4,4,4};
     static constexpr double bdtGoodHigh[nIsoBdtBins] = {1.0, 1.0, 1.0};
-    static constexpr double bdtGoodLow[nIsoBdtBins] = {0.9, 0.7, 0.9};
-    //static constexpr double bdtGoodLow[nIsoBdtBins] = {0.8156, 0.9156, 0.9656};
+    //static constexpr double bdtGoodLow[nIsoBdtBins] = {0.9, 0.7, 0.9};
+    static constexpr double bdtGoodLow[nIsoBdtBins] = {0.8, 0.7, 0.9}; // For unfolding
     static constexpr double bdtBadHigh[nIsoBdtBins] = {0.6, 0.6, 0.6};
     static constexpr double bdtBadLow[nIsoBdtBins] = {0.2, 0.2, 0.2};
     static constexpr double bdtBins[nBdtBins+1] = {0.4,0.7,0.8,0.9,1.0};
@@ -89,6 +95,7 @@ class ana {
     static constexpr double jet_pt_cut[nJetR] = {3,3,3,3,3,3,3};
     //static constexpr double jet_calib_pt_cut[nJetR] = {3,3,3,3,3,3,3};
     static constexpr double jet_calib_pt_cut[nJetR] = {5,5,5,5,5,5,5};
+    static constexpr double purityBins[nPurityBins+1] = {10,12,14,16,18,20,22,24,26,28,32,36};
     
   private:
 };

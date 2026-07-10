@@ -7,6 +7,13 @@ bool unfolder::check_pair(jet_object jet, int ir, pho_object pho, bool isreco) {
   float dphi = jet.deltaPhi(pho);
   int iabcd = ana::findabcdBin(pho.iso4, pho.bdt, 0);
   
+  int ptbin = ana::findUnfoldPtBin(pho.pt);
+  float val = jet.pt/pho.pt;      
+  float lowval = ana::jet_calib_pt_cut[ir]/ana::unfoldPtBins[ptbin];
+  float lowbin = ana::unfoldXjBins[ana::findUnfoldXjBin(lowval)+1];
+
+  if (ptbin == -1) return false;
+  if (val < lowbin) return false;
   //if (iabcd != 0) return false;
   if (fabs(pho.eta) > ana::etacut) return false;
   if (fabs(jet.eta) > ana::etacut - ana::JetRs[ir]) return false;
@@ -50,12 +57,9 @@ void unfolder::fill_matrix() {
     // Event selection
     // -----------------------
 
+
     vector<bool> keepMC = check_keep_MC(truth_cluster_pt, cluster_pt, truth_jet_pt, jet_pt_smear, trigger);
-    bool keep = 0;
-    for (int i = 0; i < ana::nJetR + 1; i++) {
-      keep |= keepMC.at(i);
-    }
-    if (!keep) continue;
+    if (isMC && !keepMC.at(keepMC.size()-1)) continue;
 
     // -----------------------
     // Leading photon & isolation
@@ -71,7 +75,7 @@ void unfolder::fill_matrix() {
         cluster_bdt_scores[9], 
         pho_object::get_showershape(cluster_showershape, cluster_pt)
     ); 
-    pho_object maxpho_truth = pho_object(
+    pho_object maxpho_truth = (isMC ? pho_object(
         truth_cluster_pt, 
         truth_cluster_e, 
         truth_cluster_eta, 
@@ -83,7 +87,7 @@ void unfolder::fill_matrix() {
         0, // no time object for truth 
         0.99, // truth photon is guaranteed a photon
         2 // truth photon is guaranteed a photon
-    ); 
+    ) : maxpho); 
 
 
     vector<jet_object> maxjet(ana::nJetR);
@@ -93,9 +97,8 @@ void unfolder::fill_matrix() {
 
     for (int ir = 0; ir < ana::nJetR; ir++) {
     
-    
       maxjet[ir] = jet_object(
-          jet_pt_smear[ir], 
+          (isMC ? jet_pt_smear[ir] : jet_pt_calib[ir]), 
           jet_e[ir], 
           jet_eta[ir], 
           jet_phi[ir], 
@@ -104,12 +107,12 @@ void unfolder::fill_matrix() {
           0, 
           jet_time[ir]
       );
-      maxjet_truth[ir] = jet_object(
+      maxjet_truth[ir] = (isMC ? jet_object(
           truth_jet_pt[ir], 
           truth_jet_e[ir], 
           truth_jet_eta[ir], 
           truth_jet_phi[ir], 
-          0, 0, 0, 0);
+          0, 0, 0, 0) : maxjet[ir]);
       
       hphodr[ir]->Fill(maxpho.deltaR(maxpho_truth));
       hjetdr[ir]->Fill(maxjet[ir].deltaR(maxjet_truth[ir]));
@@ -136,19 +139,26 @@ void unfolder::fill_matrix() {
       // -----------------------
       // Pairing
       // -----------------------
-      if (maxpho.pt > ana::cluster_pt_cut && maxjet[ir].pt > ana::jet_calib_pt_cut[ir]) {
+      if (maxpho.pt > ana::unfoldPtBins[0] && maxjet[ir].pt > ana::jet_calib_pt_cut[ir]) {
         ispaired[ir] = check_pair(maxjet[ir], ir, maxpho,1);
       }
-      if (maxpho_truth.pt > ana::cluster_pt_cut && maxjet_truth[ir].pt > ana::jet_calib_pt_cut[ir]) {
+      if (maxpho_truth.pt > ana::unfoldPtBins[0] && maxjet_truth[ir].pt > ana::jet_calib_pt_cut[ir]) {
         ispaired_truth[ir] = check_pair(maxjet_truth[ir], ir, maxpho_truth,1);
       }
+      int iabcd_reco = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+      int iabcd_truth = ana::findabcdBin(maxpho_truth.iso4, maxpho_truth.bdt, 0);
+      if (ispaired[ir] && iabcd_reco != -1) hrecoxj_abcd[ir][iabcd_reco]->Fill(bin);
+      if (ispaired_truth[ir] && iabcd_truth != -1) htruthxj_abcd[ir][iabcd_truth]->Fill(bin);
+
+      ispaired[ir] = ispaired[ir] && iabcd_reco == 0;
+      ispaired_truth[ir] = ispaired_truth[ir] && iabcd_truth == 0;
 
       // -----------------------
       // Fill response matrix
       // -----------------------
       //if (bin < 0 && ispaired[ir]) cout << "ISSUE RECO!!! xj: " << xj << " pt: " << maxpho.pt << endl;
       //if (bin_truth < 0 && ispaired_truth[ir]) cout << "ISSUE TRUTH!!! xj: " << xj_truth << " pt: " << maxpho_truth.pt << endl;
-      bool ismatch = check_match(maxjet[ir], maxjet_truth[ir]);
+      bool ismatch = ispaired_truth[ir] && ispaired[ir] && check_match(maxjet[ir], maxjet_truth[ir]);
       if (ispaired_truth[ir] && ispaired[ir] && ismatch ) {
         jet_response[ir]->Fill(maxjet[ir].pt, maxjet_truth[ir].pt);
         pho_response[ir]->Fill(maxpho.pt, maxpho_truth.pt);
@@ -174,10 +184,10 @@ void unfolder::fill_matrix() {
         
           hphomissfake[ir]->Fill(maxpho.pt,100);
           hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
-          hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+          hpairmissfake[ir]->Fill(bin,ana::nUnfoldPtBins*(ana::nUnfoldXjBins+2));
           hphomissfake[ir]->Fill(100,maxpho_truth.pt);
           hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
-          hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
+          hpairmissfake[ir]->Fill(ana::nUnfoldPtBins*(ana::nUnfoldXjBins+2),bin_truth); // +2 for underflow and overflow bins
           
           
           if (use_half) {
@@ -196,7 +206,7 @@ void unfolder::fill_matrix() {
         jet_response2D[ir]->Miss(bin_truth);
         hphomissfake[ir]->Fill(100,maxpho_truth.pt);
         hjetmissfake[ir]->Fill(100,maxjet_truth[ir].pt);
-        hpairmissfake[ir]->Fill(ana::nPtBins*ana::nUnfoldBins,bin_truth);
+        hpairmissfake[ir]->Fill(ana::nUnfoldPtBins*(ana::nUnfoldXjBins+2),bin_truth);
         if (use_half) {
           jet_response_half[ir]->Miss(maxjet_truth[ir].pt);
           pho_response_half[ir]->Miss(maxpho_truth.pt);
@@ -209,7 +219,7 @@ void unfolder::fill_matrix() {
         jet_response2D[ir]->Fake(bin);
         hphomissfake[ir]->Fill(maxpho.pt,100);
         hjetmissfake[ir]->Fill(maxjet[ir].pt,100);
-        hpairmissfake[ir]->Fill(bin,ana::nPtBins*ana::nUnfoldBins);
+        hpairmissfake[ir]->Fill(bin,ana::nUnfoldPtBins*(ana::nUnfoldXjBins+2));
         if (use_half) {
           jet_response_half[ir]->Fake(maxjet[ir].pt);
           pho_response_half[ir]->Fake(maxpho.pt);
@@ -220,14 +230,27 @@ void unfolder::fill_matrix() {
       // ------------------
       // Fill Histograms
       // ------------------
+      
+      if (ir == 1 && check_pair(maxjet[ir], ir, maxpho, 1)) {
+        bool maxpho_is_photon = check_match(maxpho, maxpho_truth);
+        int iabcd = ana::findabcdBin(maxpho.iso4, maxpho.bdt, 0);
+        float xj = maxjet[ir].pt/maxpho.pt;
+        if (iabcd == 0) {
+          if (maxpho_is_photon) hpurity_num->Fill(maxpho.pt, xj);
+          hpurity_den->Fill(maxpho.pt,xj);
+        }
+      }
+      
      
       int ipt = ana::findPtBin(maxpho.pt); 
+      
       if (ispaired[ir]) {
         hpairpurden[ir]->Fill(bin);
         
         hrecojetpt[ir]->Fill(maxjet[ir].pt);
         hrecophopt[ir]->Fill(maxpho.pt);
         hrecoxj[ir]->Fill(bin);
+        hrecoxj_purity_fit[ir]->Fill(bin,(isMC ? 1 : ana::getPurity(maxpho.pt)));
         if (!use_half) {
           hrecojetpt_half[ir]->Fill(maxjet[ir].pt);
           hrecophopt_half[ir]->Fill(maxpho.pt);
@@ -264,7 +287,7 @@ void unfolder::fill_matrix() {
           if (fabs(maxpho.eta) >= ana::etacut) cout << endl << "photon eta: " << fabs(maxpho.eta);
           if (fabs(maxjet[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << fabs(maxjet[ir].eta);
           if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
-          if (maxpho.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho.pt;
+          if (maxpho.pt <= ana::unfoldPtBins[0]) cout << endl << "cluster pt: " << maxpho.pt;
           if (maxjet[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet[ir].pt;
           cout << endl;
         }
@@ -277,7 +300,7 @@ void unfolder::fill_matrix() {
           if (fabs(maxpho_truth.eta) >= ana::etacut) cout << endl << "photon eta: " << fabs(maxpho_truth.eta);
           if (fabs(maxjet_truth[ir].eta) >= ana::etacut - ana::JetRs[ir]) cout << endl << "jet eta: " << fabs(maxjet_truth[ir].eta);
           if (dphi <= ana::oppcut) cout << endl << "dphi: " << dphi;
-          if (maxpho_truth.pt <= ana::cluster_pt_cut) cout << endl << "cluster pt: " << maxpho_truth.pt;
+          if (maxpho_truth.pt <= ana::unfoldPtBins[0]) cout << endl << "cluster pt: " << maxpho_truth.pt;
           if (maxjet_truth[ir].pt <= ana::jet_calib_pt_cut[ir]) cout << endl << "jet pt: " << maxjet_truth[ir].pt;
           cout << endl;
         }
@@ -411,6 +434,7 @@ void unfolder::savehists(TEfficiency * h[], int n) {
 
 void unfolder::end() {
   const char * wfilename = Form("/home/samson72/sphnx/gammajet/hists/%s_%s_unfolding.root",trigger.c_str(),sim.c_str());
+  if (!isMC) wfilename = Form("/home/samson72/sphnx/gammajet/hists/%s_unfolding.root",trigger.c_str());
   cout << "Writing files to " << wfilename << endl;
   TFile::Open(wfilename, "RECREATE");
 
@@ -436,6 +460,7 @@ void unfolder::end() {
   savehists(hphoresponse_half,ana::nJetR);
 
   savehists(hrecoxj,ana::nJetR);
+  savehists(hrecoxj_purity_fit,ana::nJetR);
   savehists(htruthxj,ana::nJetR);
   savehists(hunfoldxj,ana::nJetR);
   savehists(hxjresponse,ana::nJetR);
@@ -459,6 +484,13 @@ void unfolder::end() {
   savehists(hpairpurnum,ana::nJetR);
   savehists(hpaireffden,ana::nJetR);
   savehists(hpaireffnum,ana::nJetR);
+
+  for (int i = 0; i < ana::nJetR; i++) {
+    for (int j = 0; j < 4; j++) {
+      hrecoxj_abcd[i][j]->Write();
+      htruthxj_abcd[i][j]->Write();
+    }
+  }
 
   for (int ir = 0; ir < ana::nJetR; ir++) {
     hphoeff[ir] = new TEfficiency(*hphoeffnum[ir], *hphoeffden[ir]);
@@ -485,4 +517,7 @@ void unfolder::end() {
   savehists(hphomissfake,ana::nJetR);
   savehists(hjetmissfake,ana::nJetR);
   savehists(hpairmissfake,ana::nJetR);
+
+  hpurity_num->Write();
+  hpurity_den->Write();
 }

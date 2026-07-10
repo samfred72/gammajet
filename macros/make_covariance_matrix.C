@@ -1,4 +1,8 @@
+
+#include "/home/samson72/sphnx/gammajet/src/drawer.h"
+#include "/home/samson72/sphnx/gammajet/src/ana.h"
 void make_covariance_matrix() {
+  drawer d;
   TFile * f = TFile::Open("/home/samson72/sphnx/gammajet/hists/insitu_fit_nominal_R04.root","READ");
   TH2D * h2 = (TH2D*)f->Get("hchisq2d");
   
@@ -160,6 +164,8 @@ void make_covariance_matrix() {
   leg->AddEntry(m, "Best fit", "p");
   leg->AddEntry(hcont, "1#sigma contour", "l");
   leg->Draw();
+
+  d.drawAll({},{},0.20,0.93,25,c->GetWh());
 
   // -----------------------------
   // Print info

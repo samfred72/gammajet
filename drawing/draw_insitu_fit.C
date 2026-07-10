@@ -19,22 +19,50 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
   gStyle->SetOptStat(0);
   gPad->SetTicks(1,1);
   gPad->SetLeftMargin(.15);
+  gPad->SetBottomMargin(.15);
   
   hs->GetXaxis()->SetTitle("p_{T}^{#gamma} [GeV]");
-  hs->GetYaxis()->SetTitle("Ratio of <x_{J#gamma}> in Simulation to Data");
+  hs->GetYaxis()->SetTitle("<x_{J#gamma}>_{Data} / <x_{J#gamma}>_{Sim}");
   hs->GetXaxis()->SetTitleOffset(1.3);
   hs->GetYaxis()->SetRangeUser(0.9,1.15);
   hs->SetLineColor(kBlue);
   hs->SetMarkerColor(kBlue);
   hs->SetMarkerStyle(24);
   hs->SetMarkerSize(1);
+  hs->GetXaxis()->SetLabelSize(hs->GetXaxis()->GetLabelSize()*1.15);
+  hs->GetYaxis()->SetLabelSize(hs->GetYaxis()->GetLabelSize()*1.15);
+  hs->GetXaxis()->SetTitleSize(hs->GetXaxis()->GetTitleSize()*1.15);
+  hs->GetYaxis()->SetTitleSize(hs->GetYaxis()->GetTitleSize()*1.15);
   hs->Draw("same");
   
   hl->SetLineColor(kBlue);
   hl->SetMarkerColor(kBlue);
   hl->SetMarkerStyle(21);
   hl->SetMarkerSize(1);
-  hl->Draw("same");
+  //hl->Draw("same");
+  
+  const int n = hl->GetNbinsX();
+
+  std::vector<double> x(n), y(n), ex(n), ey(n);
+
+  for (int i = 0; i < n; ++i) {
+    x[i]  = hl->GetBinCenter(i+1) + 0.05; // small offset
+    y[i]  = hl->GetBinContent(i+1);
+    ex[i] = hl->GetBinWidth(i+1)*0.5;
+    ey[i] = hl->GetBinError(i+1);
+  }
+
+  gStyle->SetEndErrorSize(0);
+  TGraphErrors *gdivide_data =
+    new TGraphErrors(n, x.data(), y.data(), ex.data(), ey.data());
+
+  gdivide_data->SetMarkerColor(kBlue);
+  gdivide_data->SetLineColor(kBlue);
+  gdivide_data->SetMarkerStyle(21);
+  gdivide_data->SetMarkerSize(1);
+  gdivide_data->Draw("P SAME"); 
+
+
   
   TLegend * leg = new TLegend(0.17,0.53,0.6,0.68);
   leg->AddEntry(hs, "Uncorrected #gamma-Jet ratio");
@@ -50,7 +78,7 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
   drawer d;
   d.drawAll({"p + p #sqrt{s} = 200 GeV"},{
       //"|vz| < 60 cm", 
-      Form("|#eta| < %1.1f",1.1-ana::JetRs[ir]),
+      Form("|#eta_{jet}| < %1.1f",1.1-ana::JetRs[ir]),
       Form("Jet R=%1.1f", ana::JetRs[ir]),
       },.20,.83,21, 700);
 
@@ -59,22 +87,48 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
   TCanvas * c3 = new TCanvas("c3","",700,700);
   gPad->SetTicks(1,1);
   gPad->SetLeftMargin(.15);
+  gPad->SetBottomMargin(.15);
   
   hs3->GetXaxis()->SetTitle("p_{T,1}^{jet} [GeV]");
-  hs3->GetYaxis()->SetTitle("Ratio of <x_{J}^{-1}> in Simulation to Data");
+  hs3->GetYaxis()->SetTitle("<x_{J}^{-1}>_{Data} / <x_{J}^{-1}>_{Sim}");
   hs3->GetXaxis()->SetTitleOffset(1.3);
   hs3->GetYaxis()->SetRangeUser(0.9,1.15);
   hs3->SetLineColor(kRed+2);
   hs3->SetMarkerColor(kRed+2);
   hs3->SetMarkerStyle(24);
   hs3->SetMarkerSize(1);
+  hs3->GetXaxis()->SetLabelSize(hs3->GetXaxis()->GetLabelSize()*1.15);
+  hs3->GetYaxis()->SetLabelSize(hs3->GetYaxis()->GetLabelSize()*1.15);
+  hs3->GetXaxis()->SetTitleSize(hs3->GetXaxis()->GetTitleSize()*1.15);
+  hs3->GetYaxis()->SetTitleSize(hs3->GetYaxis()->GetTitleSize()*1.15);
   hs3->Draw("same");
 
   hl3->SetLineColor(kRed+2);
   hl3->SetMarkerColor(kRed+2);
   hl3->SetMarkerStyle(21);
   hl3->SetMarkerSize(1);
-  hl3->Draw("same");
+  //hl3->Draw("same");
+  
+  const int n3 = hl3->GetNbinsX();
+
+  std::vector<double> x3(n), y3(n), ex3(n), ey3(n);
+
+  for (int i = 0; i < n3; ++i) {
+    x3[i]  = hl3->GetBinCenter(i+1) + 0.08; // small offset
+    y3[i]  = hl3->GetBinContent(i+1);
+    ex3[i] = hl3->GetBinWidth(i+1)*0.5;
+    ey3[i] = hl3->GetBinError(i+1);
+  }
+
+  gStyle->SetEndErrorSize(0);
+  TGraphErrors *gdivide_data3 =
+    new TGraphErrors(n3, x3.data(), y3.data(), ex3.data(), ey3.data());
+
+  gdivide_data3->SetMarkerColor(kRed+2);
+  gdivide_data3->SetLineColor(kRed+2);
+  gdivide_data3->SetMarkerStyle(21);
+  gdivide_data3->SetMarkerSize(1);
+  gdivide_data3->Draw("P SAME"); 
   
   TLegend * leg3 = new TLegend(0.17,0.53,0.6,0.68);
   leg3->AddEntry(hs3, "Uncorrected multijet ratio");
@@ -88,7 +142,7 @@ void draw_insitu_fit(const char * form = "nominal", int ir = 2) {
 
   d.drawAll({"p + p #sqrt{s} = 200 GeV"},{
       //"|vz| < 60 cm", 
-      Form("|#eta| < %1.1f",1.1-ana::JetRs[ir]),
+      Form("|#eta_{jet}| < %1.1f",1.1-ana::JetRs[ir]),
       Form("Jet R=%1.1f",ana::JetRs[ir])
       },.20,.83,21, 700);
 

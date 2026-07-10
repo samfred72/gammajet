@@ -101,14 +101,15 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
   TCanvas * c = new TCanvas("c","",csize*4,csize*3);
   c->SaveAs(Form("%s[",cname));
 
-  float drawx = 0.77;
+  float drawx = 0.75;
   float drawy = 0.92;
-  float fontsize = 50;
+  float fontsize = 60;
 
   int nx = 3;
   int ny = 3;
 
 
+  float scale = 1.15;
   for (int ir = 0; ir < ana::nJetR; ir++) {
     int offset = 0;
     TPad * p = new TPad("p","",0,0,1,1);
@@ -119,35 +120,45 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
     for (int ipt = 0; ipt < ana::nPtBins; ipt++) {
       TH1D * h1 = g1.hists[ipt][ir];
       TH1D * h2 = g2.hists[ipt][ir];
-      h1->GetYaxis()->SetRangeUser(0,0.22);
 
       int index = ipt + 1 + offset;
       if (index % (nx+1) == 0) {index++; offset++;}
       p->cd(index);
       gPad->SetRightMargin(0.02);
+      if ((ipt+1) % nx == 0) gPad->SetRightMargin(0.057);
       gPad->SetTicks(1,1);
       if ((ipt) < nx*(ny-1)) gPad->SetBottomMargin(0.04);
       gPad->SetTopMargin(0.01);
-      if ((ipt) % nx != 0) gPad->SetLeftMargin(0.05);
+      if ((ipt) % nx != 0) gPad->SetLeftMargin(0.057);
       if (index == (ny*(nx+1) - 1)) h1->GetXaxis()->SetTitle("x_{J#gamma}"); // bottom right plot
       else h1->GetXaxis()->SetTitle("");
-      h1->GetXaxis()->SetTitleSize(0.10);
-      h1->GetXaxis()->SetLabelSize(0.08);
-      if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
+      h1->GetXaxis()->SetTitleSize(0.10*scale);
+      h1->GetXaxis()->SetLabelSize(0.08*scale);
+      if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.06*scale); // bottom left plot
+      if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelOffset(0.025); // bottom left plot
       if (ipt < nx*(ny-1) ) h1->GetXaxis()->SetLabelSize(0.00);
       h1->GetXaxis()->SetNdivisions(406);
-      h1->GetYaxis()->SetNdivisions(406);
+      h1->GetYaxis()->SetNdivisions(403);
       //if (index != 1) h1->GetYaxis()->ChangeLabel(-1,-1,0);
       if (index != (ny*(nx+1) - 1)) h1->GetXaxis()->ChangeLabel(-1,-1,0);
       if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
       else h1->GetYaxis()->SetTitle("");
-      h1->GetYaxis()->SetTitleSize(0.10);
-      h1->GetYaxis()->SetLabelSize(0.08);
+      h1->GetYaxis()->SetTitleSize(0.10*scale);
+      h1->GetYaxis()->SetLabelSize(0.08*scale);
       if (ipt % nx != 0 ) h1->GetYaxis()->SetLabelSize(0.00);
-      if (ipt == nx*(ny-1)) h1->GetYaxis()->SetLabelSize(0.06); // bottom left plot
+      if (ipt == nx*(ny-1)) h1->GetYaxis()->SetLabelSize(0.06*scale); // bottom left plot
       h1->GetYaxis()->SetLabelOffset(0.04);
       h1->GetYaxis()->SetMaxDigits(3);
       h1->GetYaxis()->SetDecimals(2);
+      if (ipt == nx*ny-1) h1->Scale(0.6);
+      if (ipt == nx*ny-1) h2->Scale(0.6);
+      h1->GetYaxis()->SetRangeUser(0,0.22);
+    
+      h1->GetXaxis()->ChangeLabel(1, -1, -1, -1, -1, -1, "0.0");
+      h1->GetXaxis()->ChangeLabel(2, -1, -1, -1, -1, -1, "0.5");
+      h1->GetXaxis()->ChangeLabel(3, -1, -1, -1, -1, -1, "1.0");
+      h1->GetXaxis()->ChangeLabel(4, -1, -1, -1, -1, -1, "1.5");
+      if (ipt == nx*ny -1 ) h1->GetXaxis()->ChangeLabel(5, -1, -1, -1, -1, -1, "2.0");
 
       h1->Draw("hist e1 same");
       h2->Draw("hist same");
@@ -161,6 +172,13 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
           //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  g1.histmeans[ipt][ir], g1.histerrs[ipt][ir]),
           //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  g2.histmeans[ipt][ir], g2.histerrs[ipt][ir])
           },drawx,drawy_temp,42,c->GetWh()/3.0);
+      
+      if (ipt == nx*ny-1) {
+        d.drawMany({
+          "Scaled",
+          "by 0.6",
+          },0.60,drawy_temp-0.15,42,c->GetWh()/2.0);
+      }
       TLine * mline1 = new TLine(g1.histmeans[ipt][ir],0,g1.histmeans[ipt][ir],0.15);
       mline1->SetLineColor(h1->GetLineColor());
       mline1->SetLineStyle(8);
@@ -186,14 +204,14 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
     p->cd();
     if (strcmp(variation, "Nominal") == 0) variation = "";
     d.drawAll({
-        //info1, 
+        info1, 
         //info2,
         },
         {
         //"Analysis cuts",
         Form("Jet R=%1.1f",ana::JetRs[ir]),
-        Form("#Delta#phi < %1.0f#pi/%1.0f",ana::oppnum,ana::oppden),
-        variation,
+        Form("#Delta#phi > %1.0f#pi/%1.0f",ana::oppnum,ana::oppden),
+        //variation,
         //calibstring,
         //t1[iabcd1].c_str()
         },
@@ -206,9 +224,9 @@ void draw_many(const char * cname, const char * info1, const char * info2, const
     mline2->SetLineStyle(7);
     TLegend * l2 = new TLegend(drawx,drawy-.3,0.99,drawy-.15);
     l2->SetLineWidth(0);
-    l2->AddEntry(g1.hists[0][ir],info1);
+    l2->AddEntry(g1.hists[0][ir],"Data");
     l2->AddEntry(g2.hists[0][ir],info2);
-    l2->AddEntry(mline1,Form("Mean %s",info1),"l");
+    l2->AddEntry(mline1,Form("Mean %s","Data"),"l");
     l2->AddEntry(mline2,Form("Mean %s",info2),"l");
     l2->Draw();
     c->SaveAs(cname);
@@ -301,6 +319,7 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
   c->SaveAs(Form("%s[",cname));
 
   vector<vector<float>> xj(8,vector<float>(3));
+  float scale = 1.15;
   
   for (int ir = 0; ir < ana::nJetR; ir++) {
     const char * fitfilename = Form("%s_%s_gammajet.root",fitfilestem,ana::rnames[ir]);
@@ -326,8 +345,8 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
     p1->cd();
     gPad->SetLeftMargin(0.15);
     gPad->SetTicks(1,1);
-    gPad->SetBottomMargin(0.03);
-    TLegend * lxj = new TLegend(.16,.65,.47,.85);
+    gPad->SetBottomMargin(0.035);
+    TLegend * lxj = new TLegend(.55,.65,.89,.85);
     lxj->SetLineWidth(0);
 
 
@@ -341,20 +360,24 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
     
     hdata->GetYaxis()->SetRangeUser(0,2);
     hdata->GetYaxis()->SetTitleSize(0.09);
-    hdata->GetYaxis()->SetLabelSize(0.08);
+    hdata->GetYaxis()->SetLabelSize(0.08*scale);
     hdata->GetYaxis()->SetTitleOffset(0.5);
     hdata->SetMarkerStyle(20);
+    hdata->SetMarkerSize(1.25);
     hdata->GetXaxis()->SetLabelSize(0);
+    hdata->GetYaxis()->SetRangeUser(0.6,1.2);
+    hdata->GetYaxis()->SetTitle("<x_{J#gamma}>");
     hMC->SetMarkerStyle(20);
+    hMC->SetMarkerSize(1.25);
     hdata->Draw("p");
     hMC->Draw("p same");
-    lxj->AddEntry(hdata,info1);
+    lxj->AddEntry(hdata,"Data");
     lxj->AddEntry(hMC,info2);
     lxj->Draw("same");
     //const char * fittext = (usefit ? "Fit method" : "Mean method");
     d.drawAll(
         {
-        //info1,
+        info1,
         //info2
         },
         {
@@ -362,7 +385,7 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
         //fittext,
         Form("Jet R=%0.1f",ana::JetRs[ir]), 
         },
-        .5, .75, 30, c->GetWh()*0.7);
+        .20, .75, 30, c->GetWh()*0.4);
 
     TBox *texclude1 = new TBox(10,0,13.0,2);
     texclude1->SetFillColorAlpha(kGray,0.3);
@@ -370,20 +393,20 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
     p2->cd();
     gPad->SetLeftMargin(0.15);
     gPad->SetBottomMargin(0.2);
-    gPad->SetTopMargin(0.02);
+    gPad->SetTopMargin(0.025);
     gPad->SetTicks(1,1);
     TH1D * dummy = (TH1D*)hdata->Clone();
     dummy->SetName(Form("d%i",ir));
     dummy->Reset("ICES");
 
-    dummy->GetYaxis()->SetTitle("Data / MC");
+    dummy->GetYaxis()->SetTitle("Data / Sim");
     dummy->GetYaxis()->SetTitleSize(0.07);
-    dummy->GetYaxis()->SetLabelSize(0.05);
-    dummy->GetYaxis()->SetTitleOffset(0.7);
+    dummy->GetYaxis()->SetLabelSize(0.05*scale);
+    dummy->GetYaxis()->SetTitleOffset(0.8);
     dummy->GetYaxis()->SetRangeUser(.88,1.08);
 
     dummy->GetXaxis()->SetTitle("p_{T}^{#gamma} [GeV]");
-    dummy->GetXaxis()->SetLabelSize(0.06);
+    dummy->GetXaxis()->SetLabelSize(0.05*scale);
     dummy->GetXaxis()->SetTitleSize(0.06);
     dummy->GetXaxis()->SetTitleOffset(1);
 
@@ -393,15 +416,39 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
     hdivide_data->SetMarkerColor(kBlack);
     hdivide_data->SetLineColor(kBlack);
     hdivide_data->SetMarkerStyle(24);
-    hdivide_data->SetMarkerSize(1);
-    hdivide_data->Draw("same");
+    hdivide_data->SetMarkerSize(1.25);
+    //hdivide_data->Draw("same");
+    
+    const int n = hdivide_data->GetNbinsX();
+
+    std::vector<double> x(n), y(n), ex(n), ey(n);
+
+    for (int i = 0; i < n; ++i) {
+      x[i]  = hdivide_data->GetBinCenter(i+1) + 0.05; // small offset
+      y[i]  = hdivide_data->GetBinContent(i+1);
+      ex[i] = hdivide_data->GetBinWidth(i+1)*0.5;
+      ey[i] = hdivide_data->GetBinError(i+1);
+    }
+
+    gStyle->SetEndErrorSize(0);
+    TGraphErrors *gdivide_data =
+      new TGraphErrors(n, x.data(), y.data(), ex.data(), ey.data());
+
+    gdivide_data->SetMarkerColor(kBlack);
+    gdivide_data->SetLineColor(kBlack);
+    gdivide_data->SetMarkerStyle(24);
+    gdivide_data->SetMarkerSize(1.25);
+    gdivide_data->Draw("P SAME"); 
+
+
+
     TH1D * hdivide_corrected = (TH1D*)hdata->Clone(Form("hdivide_corrected%i",ir));
     hdivide_corrected->Divide(hcorrected,hMC);
     hdivide_corrected->SetMarkerColor(kBlack);
     hdivide_corrected->SetLineColor(kBlack);
     hdivide_corrected->SetMarkerStyle(20);
-    hdivide_corrected->SetMarkerSize(1);
-    hdivide_corrected->Draw("same");
+    hdivide_corrected->SetMarkerSize(1.25);
+    //hdivide_corrected->Draw("same");
 
     d.drawLine(ana::ptBins[0],1,ana::ptBins[ana::nPtBins],1); 
     
@@ -427,11 +474,12 @@ vector<vector<float>> comp_axj(const char * cname, const char * info1, const cha
     float drawx = 0.20;
     float drawy = 0.82;
     if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),drawx,drawy+0.07,kRed,40);
-    d.drawText(Form("#bf{global #it{in situ} a = %2.4f ^{+%2.4f}_{-%2.4f}}",fbest, fhigh-fbest, fbest-flow),drawx,drawy,kRed,40);
-    TLegend * ldivide = new TLegend(0.17, 0.24, .6, 0.44);
+    //d.drawText(Form("#bf{Data-to-MC Correction = %2.4f ^{#kern[0.0]{+}%2.4f}_{#kern[0.7]{-}%2.4f}}",fbest, fhigh-fbest, fbest-flow),drawx,drawy,kRed,40);
+    TLegend * ldivide = new TLegend(0.17, 0.24, .58, 0.44);
     ldivide->AddEntry(hdivide_data,"Uncorrected ratio");
-    ldivide->AddEntry(hdivide_corrected,"Corrected ratio");
+    //ldivide->AddEntry(hdivide_corrected,"Corrected ratio");
     ldivide->SetLineWidth(0);
+    ldivide->SetFillStyle(0);
     ldivide->Draw();
 
     c->SaveAs(cname);
@@ -566,11 +614,11 @@ vector<float> comp_comp_axj(const char * cname, const char * info1, const char *
     //terr->Draw("same");
 
     if (strcmp(variation, "Nominal")) d.drawText(Form("Variation: %s",variation),.16,.25,kBlue,40);
-    d.drawText(Form("#bf{Relative Global #it{in situ} a = %2.4f ^{+%2.4f}_{-%2.4f}}",rbest, rhigh, rlow),.16,.18,kBlue,40);
+    d.drawText(Form("#bf{Relative Correction = %2.4f ^{+%2.4f}_{-%2.4f}}",rbest, rhigh, rlow),.16,.18,kBlue,40);
     
     TLegend * leg = new TLegend(0.53,0.65,0.88,0.85);
-    leg->AddEntry(gdivide1,"Default #it{in situ} ratio");
-    leg->AddEntry(gdivide2,"Systematic #it{in situ} ratio");
+    leg->AddEntry(gdivide1,"Default Data-to-MC ratio");
+    leg->AddEntry(gdivide2,"Systematic Data-to-MC ratio");
     leg->SetLineWidth(0);
     leg->Draw();
 
@@ -612,7 +660,7 @@ void newdraw_all() {
       dp
       );
   draw_many(
-      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig 3.7", "Herwig",
+      "/home/samson72/sphnx/gammajet/pdfs/note/allptbins_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig 7.3 #gamma+jet", "Herwig",
       get_hists(0, 3, 0, 0, 0, dp, "pythia"),
       get_hists(1, 3, 0, 0, 0, dh, "herwig"),
       dp
@@ -675,7 +723,7 @@ void newdraw_all() {
       dp
       );
   xj_vals_herwig = comp_axj(
-      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig3.7 #gamma+jet", "Herwig",
+      "/home/samson72/sphnx/gammajet/pdfs/note/axj_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig 7.3 #gamma+jet", "Herwig",
       "/home/samson72/sphnx/gammajet/hists/insitu_fit_HERWIG",
       dp
       );
@@ -723,7 +771,7 @@ void newdraw_all() {
 
   cout << "Drawing <xj> systematics..." << endl;
   vector<float> sys_herwig = comp_comp_axj(
-      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig3.7 #gamma+jet", "Herwig",
+      "/home/samson72/sphnx/gammajet/pdfs/note/systematic_regionA_Herwig.pdf", "p+p #sqrt{s}=200 GeV", "Herwig7.3 #gamma+jet", "Herwig",
       "/home/samson72/sphnx/gammajet/hists/insitu_fit_HERWIG",
       dp
       );
@@ -763,6 +811,15 @@ void newdraw_all() {
       dp
       );
 
+
+
+
+  float xj[ana::nJetR];
+  float stat_up[ana::nJetR];
+  float stat_down[ana::nJetR];
+  float systematic_up[ana::nJetR];
+  float systematic_down[ana::nJetR];
+
   for (int i = 0; i < 1; i++) { 
     (i == 0 ? cout << endl << endl << "xJ values with mean:" << endl : cout << endl << endl << "xJ values with fit:" << endl << endl);
     cout << "Jet Radius & Nominal $x_{J\\gamma}$ & Purity & Isolation & Jet topology & Model & JER & EM Scale\\\\ [0.5ex]" << endl;
@@ -771,8 +828,8 @@ void newdraw_all() {
       float herwig_sys = (xj_vals_herwig[ir][1] - xj_vals[ir][1])/2.0;
       
       float sys_down = (i == 0 ? TMath::Sqrt(
-            //sys_herwig[ir]*sys_herwig[ir] + 
-            herwig_sys*herwig_sys + 
+            sys_herwig[ir]*sys_herwig[ir] + 
+            //herwig_sys*herwig_sys + 
             sys_bdt[ir]*sys_bdt[ir] +
             sys_iso[ir]*sys_iso[ir] +
             sys_3jet[ir]*sys_3jet[ir] +
@@ -781,8 +838,8 @@ void newdraw_all() {
             ) 
           : TMath::Sqrt(0));
       float sys_up = (i == 0 ? TMath::Sqrt(
-            herwig_sys*herwig_sys +
-            //sys_herwig[ir]*sys_herwig[ir] + 
+            //herwig_sys*herwig_sys +
+            sys_herwig[ir]*sys_herwig[ir] + 
             sys_bdt[ir]*sys_bdt[ir] +
             sys_iso[ir]*sys_iso[ir] +
             sys_3jet[ir]*sys_3jet[ir] +
@@ -790,29 +847,136 @@ void newdraw_all() {
             (sys_scalehigh[ir] > 0 ? sys_scalehigh[ir]*sys_scalehigh[ir] : 0)
             ) 
           : TMath::Sqrt(0));
-      //float xj =  (i == 0 ? xj_vals[ir][1]  : 0); // THE result
-      //float esu = (i == 0 ? fabs(xj_vals[ir][2])  : 0); // upper error
-      //float esd = (i == 0 ? fabs(xj_vals[ir][0])  : 0); // lower error
-      float xj =  (i == 0 ? (xj_vals[ir][1] + xj_vals_herwig[ir][1])/2.0  : 0); // THE result
+      float _xj =  (i == 0 ? xj_vals[ir][1]  : 0); // THE result
       float esu = (i == 0 ? fabs(xj_vals[ir][2])  : 0); // upper error
       float esd = (i == 0 ? fabs(xj_vals[ir][0])  : 0); // lower error
+      //float _xj =  (i == 0 ? (xj_vals[ir][1] + xj_vals_herwig[ir][1])/2.0  : 0); // THE result
+      //float esu = (i == 0 ? fabs(xj_vals[ir][2])  : 0); // upper error
+      //float esd = (i == 0 ? fabs(xj_vals[ir][0])  : 0); // lower error
       float eb =  (i == 0 ? fabs(sys_bdt[ir])     : 0);
       float ei =  (i == 0 ? fabs(sys_iso[ir])     : 0);
       float e3 =  (i == 0 ? fabs(sys_3jet[ir])    : 0);
-      float eh =  (i == 0 ? fabs(herwig_sys)  : 0);
-      //float eh =  (i == 0 ? fabs(sys_herwig[ir])  : 0);
+      //float eh =  (i == 0 ? fabs(herwig_sys)  : 0);
+      float eh =  (i == 0 ? fabs(sys_herwig[ir])  : 0);
       float eJH = (i == 0 ? (sys_JERhigh[ir] < 0 ? fabs(sys_JERhigh[ir]) : 0)        : 0); //JER is not abs'ded
       float eJL = (i == 0 ? (sys_JERlow[ir] > 0 ? fabs(sys_JERlow[ir]) : 0)          : 0);
-      float esH = (i == 0 ? (sys_scalehigh[ir] > 0 ? fabs(sys_scalehigh[ir]) : 0)    : 0); //EM scale is not abs'ded
-      float esL = (i == 0 ? (sys_scalelow[ir] < 0 ? fabs(sys_scalelow[ir]) : 0)      : 0);
+      float esH = (i == 0 ? (sys_scalehigh[ir] < 0 ? fabs(sys_scalehigh[ir]) : 0)    : 0); //EM scale is not abs'ded
+      float esL = (i == 0 ? (sys_scalelow[ir] > 0 ? fabs(sys_scalelow[ir]) : 0)      : 0);
       
-      cout << std::defaultfloat << ana::JetRs[ir] << std::fixed << std::setprecision(4) << " & " << xj << "$^{+" << esu << "}_{-" << esd << "}$ (stat) $^{+" 
+      cout << std::defaultfloat << ana::JetRs[ir] << std::fixed << std::setprecision(4) << " & " << _xj << "$^{+" << esu << "}_{-" << esd << "}$ (stat) $^{+" 
         << sys_up << "}_{-" << sys_down << "}$ (sys) & " 
         << eb << " & " << ei << " & " << e3 << " & " << eh 
         << " & $^{+" << eJL << "}_{-" << eJH << "}$"
         << " & $^{+" << esH << "}_{-" << esL << "}$ \\\\";
       if (ir == ana::nJetR -1) cout << " [1ex]";
       cout << endl;
+
+      xj[ir] = _xj;
+      stat_up[ir] = esu;
+      stat_down[ir] = esd;
+      systematic_up[ir] = sys_up;
+      systematic_down[ir] = sys_down;
     }
   }
+
+  
+  // Draw final results
+
+  const int n = ana::nJetR;
+
+  // Arrays for TGraphAsymmErrors
+  float r[n];
+  float exl[n], exh[n];
+  float eyl_stat[n], eyh_stat[n];
+
+  for (int i = 0; i < n; ++i) {
+    r[i] = ana::JetRs[i];
+
+    exl[i] = 0.0;
+    exh[i] = 0.0;
+
+    eyl_stat[i] = stat_down[i];
+    eyh_stat[i] = stat_up[i];
+  }
+
+  TCanvas *c = new TCanvas("c","c",800,600);
+  gPad->SetTicks(1,1);
+
+  TH1F *frame = c->DrawFrame(
+      r[0] - 0.05,
+      0.92,
+      r[n-1] + 0.05,
+      1.12);
+
+  frame->SetTitle(";Jet R;Data-to-MC JES Correction");
+  frame->GetXaxis()->SetNdivisions(8);
+
+  //------------------------------------------------------------------
+  // Systematic uncertainty boxes
+  //------------------------------------------------------------------
+
+  const float boxHalfWidth = 0.051;
+
+  std::vector<TBox*> boxes;
+
+  for (int i = 0; i < n; ++i) {
+
+    TBox *b = new TBox(
+        r[i] - boxHalfWidth,
+        xj[i] - systematic_down[i],
+        r[i] + boxHalfWidth,
+        xj[i] + systematic_up[i]);
+
+    b->SetFillColorAlpha(kAzure+1, 0.35);
+    b->SetLineColor(kAzure+2);
+    b->Draw("same");
+
+    boxes.push_back(b);
+  }
+
+  //------------------------------------------------------------------
+  // Statistical uncertainty bars
+  //------------------------------------------------------------------
+
+  TGraphAsymmErrors *gStat =
+    new TGraphAsymmErrors(
+        n,
+        r,
+        xj,
+        exl,
+        exh,
+        eyl_stat,
+        eyh_stat);
+
+  gStat->SetMarkerStyle(20);
+  gStat->SetMarkerSize(1.2);
+  gStat->SetLineWidth(2);
+  gStat->SetLineColor(kBlack);
+  gStat->SetMarkerColor(kBlack);
+
+  gStat->Draw("PZ SAME");
+
+  //------------------------------------------------------------------
+  // Legend
+  //------------------------------------------------------------------
+
+  TLegend *leg = new TLegend(0.45,0.72,0.88,0.85);
+  leg->SetBorderSize(0);
+  leg->SetFillStyle(0);
+
+  leg->AddEntry(gStat,
+      "Stat. unc.",
+      "lep");
+
+  leg->AddEntry(boxes[0],
+      "Syst. unc.",
+      "f");
+
+  leg->Draw();
+
+  dp.drawAll({"p+p #sqrt{s}=200 GeV", "Pythia 8 #gamma+jet"},{},0.15,0.8,20,c->GetWh());
+
+  c->RedrawAxis();
+  c->SaveAs("/home/samson72/sphnx/gammajet/pdfs/note/xj_vs_R.pdf");
+
 }

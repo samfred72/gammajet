@@ -58,6 +58,7 @@ bool histmaker::loop(jet_object jet, int ir, pho_object pho, int icalib, float w
     }
     if (iabcd[iib] == -1) continue;// || !passabcd) continue;
     
+    if (ir == 2 && iib == 0 && icalib == 2 && iabcd[iib] == 0) cout << "pt: " << pho.pt << " eta: " << pho.eta << " phi: " << pho.phi << endl;
     hratio[ipt][ir][icalib][iib][0][iabcd[iib]]->Fill(val, weight); 
     
     if (!b_hasthirdjet) hratio[ipt][ir][icalib][iib][1][iabcd[iib]]->Fill(val);
@@ -108,7 +109,7 @@ void histmaker::make_hists()
     if(e % 1000==0) std::cout << "entry " << e << "/" << nentries << " (" << (float)e/nentries*100. << "%)" << "\t\r" << std::flush;
     //if (RunNumber != 51154) continue;
     if (fabs(vz) > ana::vzcut) continue;
-    if (!isMC && !ScaledTriggerBit[27] && !ScaledTriggerBit[38]) continue;
+    //if (!isMC && !ScaledTriggerBit[27] && !ScaledTriggerBit[38]) continue;
     mbd_t0 = mbd_time;// - t0corr;
     
     // Fill time histos before any cuts
@@ -228,6 +229,8 @@ void histmaker::make_hists()
     vector<jet_object> maxjet_smear(ana::nJetR);
     vector<jet_object> maxjet_smear_high(ana::nJetR);
     vector<jet_object> maxjet_smear_low(ana::nJetR);
+    vector<jet_object> maxjet_scale_high(ana::nJetR);
+    vector<jet_object> maxjet_scale_low(ana::nJetR);
     int ipt = ana::findPtBin(maxpho.pt);
     if (ipt < 0) continue; 
 
@@ -291,11 +294,33 @@ void histmaker::make_hists()
           0, 
           jet_time[ir]
         );
+        maxjet_scale_high[ir] = jet_object(
+          jet_pt_smear[ir]*jet_emfrac[ir] + jet_pt_smear[ir]*jet_emfrac[ir]*0.011 + jet_pt_smear[ir]*(1-jet_emfrac[ir]), 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+        );
+        maxjet_scale_low[ir] = jet_object(
+          jet_pt_smear[ir]*jet_emfrac[ir] - jet_pt_smear[ir]*jet_emfrac[ir]*0.011 + jet_pt_smear[ir]*(1-jet_emfrac[ir]), 
+          jet_e[ir],
+          jet_eta[ir], 
+          jet_phi[ir], 
+          jet_emfrac[ir], 
+          0, 
+          0, 
+          jet_time[ir]
+        );
       }
       else {
         maxjet_smear[ir] = maxjet_calib[ir];
         maxjet_smear_high[ir] = maxjet_calib[ir];
         maxjet_smear_low[ir] = maxjet_calib[ir];
+        maxjet_scale_high[ir] = maxjet_calib[ir];
+        maxjet_scale_low[ir] = maxjet_calib[ir];
       }
       
       if (maxjet[ir].pt > ana::jet_pt_cut[ir]) {
@@ -314,8 +339,12 @@ void histmaker::make_hists()
         loop(maxjet_smear[ir], ir, maxpho, 2,  1, truthpho); // Normal smearing
         ispaired[ir] = loop(maxjet_smear[ir], ir, maxpho, 3, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // smearing with weights
         loop(maxjet_smear[ir], ir, (isMC ? maxpho_smear : maxpho), 4,  1, truthpho); // smearing the photon, too
-        loop(maxjet_smear[ir], ir, maxpho_scalelow, 0, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
-        loop(maxjet_smear[ir], ir, maxpho_scalehigh , 1, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
+      }
+      if (maxjet_scale_low[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        loop(maxjet_scale_low[ir], ir, maxpho_scalelow, 0, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
+      }
+      if (maxjet_scale_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
+        loop(maxjet_scale_high[ir], ir, maxpho_scalehigh , 1, (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho); // photon scale
       }
       if (maxjet_smear_high[ir].pt > ana::jet_calib_pt_cut[ir]) {
         loop(maxjet_smear_high[ir], ir, maxpho, 5,  (isMC ? reweight(maxpho.pt,vz,maxjet[ir].emfrac) : 1.0), truthpho);

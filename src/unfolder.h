@@ -66,7 +66,12 @@ class unfolder : public treeuser {
         htruthphopt_half[i] = new TH1D(Form("htruthphopt_half%i",i),";pho p_{T,max};counts",100,0,100);
         pho_response_half[i] = new RooUnfoldResponse(hrecophopt_half[i], htruthphopt_half[i]);
        
+        for (int j = 0; j < 4; j++) { // 4  for ABCD
+          hrecoxj_abcd[i][j] = new TH1D(Form("hrecoxj%i_%i",i,j),";reco cluster p_{T}; x_{J#gamma}"      ,nbins,0,nbins);
+          htruthxj_abcd[i][j] = new TH1D(Form("htruthxj%i_%i",i,j),";truth cluster p_{T}; x_{J#gamma}"      ,nbins,0,nbins);
+        }
         hrecoxj[i] = new TH1D(Form("hrecoxj%i",i),";reco cluster p_{T}; x_{J#gamma}"      ,nbins,0,nbins);
+        hrecoxj_purity_fit[i] = new TH1D(Form("hrecoxj_purity_fit%i",i),";reco cluster p_{T}; x_{J#gamma}"      ,nbins,0,nbins);
         htruthxj[i] = new TH1D(Form("htruthxj%i",i),";truth cluster p_{T}; x_{J#gamma}"   ,nbins,0,nbins);
         hunfoldxj[i] = new TH1D(Form("hunfoldxj%i",i),";unfold cluster p_{T}; x_{J#gamma}",nbins,0,nbins);
         jet_response2D[i] = new RooUnfoldResponse(hrecoxj[i], htruthxj[i],Form("response_full_jetR%d",i),Form("response_%d",i));
@@ -162,11 +167,14 @@ class unfolder : public treeuser {
     TH2D * hphoresponse_half[ana::nJetR];
     
    
-    int nbins = (ana::nPtBins) * ana::nUnfoldBins; // +2 bins per pT bin for overflow and underflow
+    int nbins = (ana::nUnfoldPtBins) * (ana::nUnfoldXjBins+2); // +2 bins per pT bin for overflow and underflow
     RooUnfoldResponse * jet_response2D[ana::nJetR];
     RooUnfoldResponse * jet_response_half2D[ana::nJetR];
     
+    TH1D * hrecoxj_abcd    [ana::nJetR][4];
+    TH1D * htruthxj_abcd   [ana::nJetR][4];
     TH1D * hrecoxj         [ana::nJetR];
+    TH1D * hrecoxj_purity_fit[ana::nJetR];
     TH1D * htruthxj        [ana::nJetR];
     TH1D * hunfoldxj       [ana::nJetR];
     TH2D * hxjresponse     [ana::nJetR];
@@ -175,6 +183,9 @@ class unfolder : public treeuser {
     TH1D * htruthxj_half   [ana::nJetR];
     TH1D * hunfoldxj_half  [ana::nJetR];
     TH2D * hxjresponse_half[ana::nJetR];
+
+    TH2D * hpurity_num = new TH2D("hpurity_num", ";p_{T};x_{j}", ana::nUnfoldPtBins-1, ana::unfoldPtBins, ana::nUnfoldXjBins, ana::unfoldXjBins);
+    TH2D * hpurity_den = new TH2D("hpurity_den", ";p_{T};x_{j}", ana::nUnfoldPtBins-1, ana::unfoldPtBins, ana::nUnfoldXjBins, ana::unfoldXjBins);
 
 };
 

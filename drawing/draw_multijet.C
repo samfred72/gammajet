@@ -6,11 +6,13 @@ drawer d;
 void draw_many(TCanvas * c, const char * cname, const char * info1, const char * info2, const char * variation, 
     TH1D * H1[], TH1D * H2[],int ir = 2) {
   c->cd();
+  gStyle->SetStripDecimals(0);
 
-  float drawx = 0.77;
-  float drawy = 0.92;
-  float fontsize = 50;
+  float drawx = 0.75;
+  float drawy = 0.88;
+  float fontsize = 60;
   int offset = 0;
+  float scale = 1.15;
 
   TPad * p = new TPad("p","",0,0,1,1);
   p->SetLeftMargin(0.25);
@@ -28,15 +30,18 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     if (index % (nx+1) == 0) {index++; offset++;}
     p->cd(index);
     gPad->SetRightMargin(0.01);
+    if ((ipt+1) % 3 == 0) gPad->SetRightMargin(0.057);
     gPad->SetTicks(1,1);
     if ((ipt) / nx == 0) gPad->SetBottomMargin(0.04);
     gPad->SetTopMargin(0.01);
-    if ((ipt) % nx != 0) gPad->SetLeftMargin(0.05);
+    if ((ipt) % nx != 0) gPad->SetLeftMargin(0.056);
     if (index == (ny*(nx+1) - 1)) h1->GetXaxis()->SetTitle("x_{J}^{-1}"); // bottom right plot
     else h1->GetXaxis()->SetTitle("");
-    h1->GetXaxis()->SetTitleSize(0.10);
-    h1->GetXaxis()->SetLabelSize(0.08);
-    if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.07); // bottom left plot
+    h1->GetXaxis()->SetTitleSize(0.10*scale);
+    h1->GetXaxis()->SetLabelSize(0.072*scale);
+    h1->GetXaxis()->SetLabelOffset(0.018);
+    if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelSize(0.062*scale); // bottom left plot
+    if (index == (nx+1)*(ny-1)+1) h1->GetXaxis()->SetLabelOffset(0.026); // bottom left plot
     if (ipt < 3 ) h1->GetXaxis()->SetLabelSize(0.00);
     h1->GetYaxis()->SetNdivisions(605);
     //if (index == (nx+1)*(ny-1)+1) h1->GetYaxis()->ChangeLabel(-1,-1,0);
@@ -44,12 +49,26 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
     if (index == 1) h1->GetYaxis()->SetTitle("Normalized Counts"); // top left plot
     else h1->GetYaxis()->SetTitle("");
     h1->GetYaxis()->SetTitleSize(0.10);
-    h1->GetYaxis()->SetLabelSize(0.08);
+    h1->GetYaxis()->SetLabelSize(0.084*scale);
     if (ipt != 0 && ipt != 3 ) h1->GetYaxis()->SetLabelSize(0.00);
-    if (ipt == 3) h1->GetYaxis()->SetLabelSize(0.06); // bottom left plot
+    if (ipt == 3) h1->GetYaxis()->SetLabelSize(0.064*scale); // bottom left plot
     h1->GetYaxis()->SetLabelOffset(0.04);
+    if (ipt == 5) {
+      h1->Scale(0.3);
+      h2->Scale(0.3);
+    } 
     h1->GetYaxis()->SetMaxDigits(3);
-    h1->GetYaxis()->SetDecimals(2);
+    h1->GetYaxis()->SetDecimals(3);
+
+    h1->GetYaxis()->ChangeLabel(1, -1, -1, -1, -1, -1, "0.0");
+    h1->GetYaxis()->ChangeLabel(2, -1, -1, -1, -1, -1, "1.0");
+    h1->GetYaxis()->ChangeLabel(3, -1, -1, -1, -1, -1, "2.0");
+    h1->GetXaxis()->ChangeLabel(1, -1, -1, -1, -1, -1, "0.5");
+    h1->GetXaxis()->ChangeLabel(2, -1, -1, -1, -1, -1, "1.0");
+    h1->GetXaxis()->ChangeLabel(3, -1, -1, -1, -1, -1, "1.5");
+    h1->GetXaxis()->ChangeLabel(4, -1, -1, -1, -1, -1, "2.0");
+    h1->GetXaxis()->ChangeLabel(5, -1, -1, -1, -1, -1, "2.5");
+    h1->GetYaxis()->SetRangeUser(0,2.70);
 
     h1->Draw("hist e1");
     h2->Draw("hist same");
@@ -65,16 +84,32 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info1,  h1->GetMean(), h1->GetMeanError()),
         //Form("#bf{#mu_{%s} = %0.3f #pm %0.3f}",info2,  h2->GetMean(), h2->GetMeanError())
         },drawx,drawy_temp,42,c->GetWh()/3.0);
+    if (ipt == 5) {
+      d.drawMany({
+          "Scaled",
+          "by 0.3",
+          },0.64,drawy_temp-0.13,42,c->GetWh()/2.0);
+    }
     float err = TMath::Sqrt(h1->GetMeanError()*h1->GetMeanError()+h2->GetMeanError()*h2->GetMeanError());
     cout << ana::trijetPtBins[ipt] << "-" << ana::trijetPtBins[ipt+1] << std::fixed << std::setprecision(3) << " \\GeV & " 
       //<< h1->GetMean() << " $\\pm$ " << h1->GetMeanError() << " & " 
       //<< h2->GetMean() << " $\\pm$ " << h2->GetMeanError() << " & "
       << h1->GetMean()/h2->GetMean() << " $\\pm$ " << err << " \\\\ " << std::defaultfloat << endl;
+      
+    
+    TLine * mline1 = new TLine(h1->GetMean(),0,h1->GetMean(),h1->GetMaximum()*0.8);
+    mline1->SetLineColor(h1->GetLineColor());
+    mline1->SetLineStyle(8);
+    TLine * mline2 = new TLine(h2->GetMean(),0,h2->GetMean(),h1->GetMaximum()*0.8);
+    mline2->SetLineColor(h2->GetLineColor());
+    mline2->SetLineStyle(7);
+    mline1->Draw();
+    mline2->Draw();
   }
 
   p->cd();
   d.drawAll({
-      //info1, 
+      info1, 
       //info2
       },
       {
@@ -84,11 +119,23 @@ void draw_many(TCanvas * c, const char * cname, const char * info1, const char *
       //variation,
       },
       drawx,drawy,fontsize,c->GetWh());
-  TLegend * l2 = new TLegend(drawx,drawy-.40,0.99,drawy-.30);
+  TLegend * l2 = new TLegend(drawx,drawy-.43,0.99,drawy-.23);
   //TLegend * l2 = new TLegend(drawx,drawy-.20,0.99,drawy-.10);
   l2->SetLineWidth(0);
-  l2->AddEntry(H1[0],info1);
+  l2->AddEntry(H1[0],"Data");
   l2->AddEntry(H2[0],info2);
+    
+  TLine * mline1 = new TLine(0,0,1,1);
+  mline1->SetLineColor(H1[0]->GetLineColor());
+  mline1->SetLineStyle(8);
+  TLine * mline2 = new TLine(0,0,1,1);
+  mline2->SetLineColor(H2[0]->GetLineColor());
+  mline2->SetLineStyle(7);
+  
+  l2->AddEntry(mline1,Form("Mean %s","Data"),"l");
+  l2->AddEntry(mline2,Form("Mean %s",info2),"l");
+  
+  l2->SetLineWidth(0);
   l2->Draw();
   c->SaveAs(cname);
   return;
@@ -209,11 +256,11 @@ void draw_multijet() {
         hd[i][j][k]->GetYaxis()->SetRangeUser(0,hd[i][j][k]->GetMaximum()*1.5);
         hd[i][j][k]->SetLineWidth(2);
         
-        hj[i][j][k]->SetLineColor(kMagenta+1);
+        hj[i][j][k]->SetLineColor(kMagenta);
         if (strcmp(typenames[k],"_HERWIG")==0) hj[i][j][k]->SetLineColor(kSpring-1);
         hj[i][j][k]->Scale(1.0/hj[i][j][k]->Integral("width"));
         hj[i][j][k]->GetYaxis()->SetRangeUser(0,hj[i][j][k]->GetMaximum()*1.5);
-        hj[i][j][k]->SetLineWidth(1);
+        hj[i][j][k]->SetLineWidth(2);
         
         hd[i][j][k]->SetDirectory(0);
         hj[i][j][k]->SetDirectory(0);
